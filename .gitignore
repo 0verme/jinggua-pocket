@@ -1,0 +1,25 @@
+# PlatformIO
+.pio/
+.piolibdeps/
+.platformio/
+
+# Host tests and local build output
+build/
+cmake-build-*/
+
+# IDE and OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Local credentials and environment overrides
+.env
+.env.*
+
+# Temporary logs
+*.log
