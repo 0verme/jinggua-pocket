@@ -4,6 +4,12 @@
 
 namespace jinggua::hardware {
 
+// Shake detection remains available for native calibration tests, but is not
+// part of the stable Button Mode firmware path unless explicitly enabled.
+#ifndef JINGGUA_ENABLE_SHAKE_EXPERIMENTAL
+#define JINGGUA_ENABLE_SHAKE_EXPERIMENTAL 0
+#endif
+
 struct ImuSample {
   float accelerationX{0.0F};
   float accelerationY{0.0F};

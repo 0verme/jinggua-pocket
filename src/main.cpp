@@ -82,11 +82,15 @@ void loop() {
     Serial.println(")");
   }
 
+#if JINGGUA_ENABLE_SHAKE_EXPERIMENTAL
   if (event == jinggua::application::InputEvent::None && hasSample &&
       shakeDetector.update(sample)) {
     Serial.println("[Shake] TRIGGERED");
     event = jinggua::application::InputEvent::Shake;
   }
+#else
+  (void)shakeDetector;
+#endif
 
   if (event != jinggua::application::InputEvent::None) {
     Serial.print("[Input] ");

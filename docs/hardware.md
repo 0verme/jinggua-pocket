@@ -22,7 +22,7 @@ StickS3 官方规格/PinMap 页面确认：
 - SoC 为 ESP32-S3-PICO-1-N8R8，8 MB Flash、8 MB Octal PSRAM。
 - 内置显示驱动为 ST7789P3。
 - IMU 为 BMI270，地址 `0x68`，I2C 使用 G48/G47。
-- KEY1/KEY2 对应 ESP32-S3 G11/G12。
+- KEY1/KEY2 对应 ESP32-S3 G11/G12；M5Unified 将 KEY1 映射为 `M5.BtnA`、KEY2 映射为 `M5.BtnB`。
 - 官方 Arduino 文档说明按钮使用 M5Unified `Button_Class`，IMU 使用
   M5Unified `IMU_Class`，显示使用 M5GFX。
 
@@ -78,7 +78,11 @@ bring-up 时的漂移；升级必须单独验证。
 - required peaks：`2`
 
 这些不是最终产品参数，必须在真实 StickS3 上观察静止、轻拿、一次摇动和
-连续摇动数据后校准。Button Mode 不依赖 IMU，因此 IMU 不会阻塞 v0.1。
+连续摇动数据后校准。固件默认不启用 Shake 输入；只有显式定义
+`JINGGUA_ENABLE_SHAKE_EXPERIMENTAL=1` 时，ShakeDetector 才会参与起卦。
+Button Mode 不依赖 IMU，因此未校准的 ShakeDetector 不会破坏稳定的 v0.1
+Button Mode。Shake Mode: **EXPERIMENTAL**；Shake Full Flow: **NOT RELEASE
+READY**。
 
 ## 真机安全边界
 
@@ -97,13 +101,13 @@ Firmware commit: 2ea2845
 
 - USB upload: PASS (ESP32-S3-PICO-1, 8MB flash, 8MB PSRAM)
 - USB serial: PASS (Windows dynamically assigned COM port; COM3 during this session)
-- Display initialization: PASS; detected size 135x240
-- Display rotation/readability: CODE VERIFIED; visual confirmation required per device session
+- Display initialization: PASS; detected size 135x240; M5GFX built-in UTF-8 Chinese font is selected for on-device result text
+- Display rotation/readability: CODE VERIFIED; Chinese glyph rendering is enabled with M5GFX `efontCN_10`; visual confirmation required per device session
 - BtnA: PASS; BtnA -> PrimaryClick, M5.update() active
-- BtnB: NOT VERIFIED in the captured full-flow log
+- BtnB: NOT VERIFIED; reopened `COM3 @ 115200` monitor 后再次短按未捕获 BtnB 事件。M5Stack 官方资料与 M5Unified `0.2.21` 实现均确认 `BtnA=KEY1/GPIO11`、`BtnB=KEY2/GPIO12`，当前代码映射一致；因此暂无代码 root cause，仍需确认实际物理按键/电气路径
 - BMI270: PASS; accelerometer and gyroscope samples observed
 - Button full flow: PASS; six lines produced in order, index 0 = 初爻, index 5 = 上爻
-- ShakeDetector: EXPERIMENTAL; real triggers observed, but single-shake calibration was not completed and repeated triggers were observed during the trial
+- Shake Detector: EXPERIMENTAL; 默认关闭。此前真实测试一次交互观察到 8 次 `TRIGGERED`，未达到 release-ready 标准
 
 First captured button-mode result:
 
@@ -112,8 +116,24 @@ First captured button-mode result:
 - Moving line: 三爻
 - Transformed hexagram: 艮为山 (52)
 
-Shake trial: 8 `TRIGGERED` events were observed during one interactive session; one event in CASTING produced line 1, while additional events were ignored outside the casting state. The current provisional detector requires further calibration.
+Shake trial: one interactive session observed 8 `TRIGGERED` events; one event in CASTING produced line 1, while additional events were ignored outside the casting state. This evidence is retained as experimental only; Shake is not a v0.1 stable capability.
 
-Known bring-up note: M5Unified emitted transient I2C ack wait diagnostics during startup; display and BMI270 subsequently initialized and operated successfully.
+### Bring-up matrix
+
+| 项目 | 状态 |
+| --- | --- |
+| USB / Flash | PASS |
+| Display | PASS |
+| BtnA | PASS |
+| BtnB | NOT VERIFIED — monitor capture had no event; authoritative mapping matches code, physical input path remains the unresolved root cause |
+| BMI270 | PASS |
+| Button Mode | PASS |
+| Shake Detector | EXPERIMENTAL |
+| Shake Full Flow | NOT RELEASE READY |
+| Transient I2C log | NON-BLOCKING / MONITOR |
+
+Known bring-up note: M5Unified emitted transient I2C `ack wait` diagnostics during startup; display and BMI270 subsequently initialized and operated successfully. This remains NON-BLOCKING / MONITOR; no random delay, I2C clock, or initialization-order change was made.
+
+The authoritative button mapping used for this verification is M5Stack StickS3 documentation plus the pinned M5Unified `0.2.21` implementation: `BtnA` reads KEY1/GPIO11 and `BtnB` reads KEY2/GPIO12.
 
 Windows assigns the USB serial COM port dynamically. The project does not require a fixed upload_port or monitor_port.

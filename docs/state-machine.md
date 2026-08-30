@@ -42,10 +42,10 @@ WELCOME ── PRIMARY_CLICK ──> PREPARE
 | `PrimaryClick` | StickS3 `BtnA` | 页面前进、Button 起一爻 |
 | `SecondaryClick` | StickS3 `BtnB` | 取消重新起卦 |
 | `LongPress` | M5Unified hold | 确认重新起卦 |
-| `Shake` | `ShakeDetector` | Casting 状态可替代按钮起一爻 |
+| `Shake` | `ShakeDetector` | 仅在显式启用 experimental config 时可在 Casting 状态替代按钮起一爻 |
 | `None` | 无输入 | 不改变状态 |
 
-Shake 接口已经连到应用事件路径，但参数仍需真机校准；Button Mode 是默认
+Shake 接口保留在应用事件路径，但默认 compile-time disabled，且参数仍需真机校准；Button Mode 是默认
 且可独立完成 v0.1。
 
 ## 渲染约束

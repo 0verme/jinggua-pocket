@@ -35,6 +35,9 @@ void Display::drawText(const char* text, int x, int y, Color color,
                        std::uint8_t textSize) noexcept {
 #if defined(ARDUINO)
   if (ready_) {
+    // Font0 only covers the default Latin glyphs. Use M5GFX's built-in
+    // UTF-8-capable Chinese font so the v0.1 result remains readable on-device.
+    M5.Display.setFont(&fonts::efontCN_10);
     M5.Display.setTextColor(color);
     M5.Display.setTextSize(textSize);
     M5.Display.drawString(text, x, y);
