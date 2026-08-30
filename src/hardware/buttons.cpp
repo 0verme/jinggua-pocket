@@ -1,5 +1,7 @@
 #include "jinggua/hardware/buttons.h"
 
+#include <cstdint>
+
 #if defined(ARDUINO)
 #include <M5Unified.h>
 #endif
@@ -7,7 +9,15 @@
 namespace jinggua::hardware {
 
 void StickS3Buttons::begin() noexcept {
+#if defined(ARDUINO)
+  // Keep the input contract explicit: M5Unified emits one click only after
+  // its debounce interval and one hold event at the hold threshold.
+  constexpr std::uint32_t kDebounceMs = 10;
+  M5.BtnA.setDebounceThresh(kDebounceMs);
+  M5.BtnB.setDebounceThresh(kDebounceMs);
+#else
   // M5Unified initializes the StickS3 buttons together with the display.
+#endif
 }
 
 application::InputEvent StickS3Buttons::poll() noexcept {

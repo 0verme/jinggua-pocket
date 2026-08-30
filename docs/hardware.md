@@ -53,7 +53,8 @@ bring-up 时的漂移；升级必须单独验证。
 `M5.begin()` 在 `hardware::Display::begin()` 中调用；之后：
 
 - `StickS3Buttons::poll()` 调用 `M5.update()`，使用 `M5.BtnA.wasClicked()`、
-  `M5.BtnB.wasClicked()` 和 hold API，不在业务层读 G11/G12。
+  `M5.BtnB.wasClicked()` 和 hold API；初始化时显式设置
+  M5Unified 的 10 ms debounce，不在业务层读 G11/G12。
 - `StickS3Imu::read()` 使用 `M5.Imu.update()` 与 `getImuData()`，只输出
   `ImuSample`。
 - `Display` 使用 `M5.Display` 的 `fillScreen`、`drawString` 和 `drawLine`。
