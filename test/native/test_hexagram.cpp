@@ -1,5 +1,7 @@
 #include <array>
 #include <cstring>
+#include <set>
+#include <string>
 
 #include "test_framework.h"
 #include "test_support.h"
@@ -36,11 +38,43 @@ void runHexagramTests(TestRunner& runner) {
 
   const auto& definitions = jinggua::data::allHexagrams();
   EXPECT_EQ(runner, definitions.size(), static_cast<std::size_t>(64));
-  for (std::size_t index = 0; index < definitions.size(); ++index) {
-    const auto& definition = definitions[index];
-    EXPECT_EQ(runner, definition.number,
-              static_cast<std::uint8_t>(index + 1));
+  std::array<bool, 65> seenNumbers{};
+  std::set<std::string> names;
+  for (const auto& definition : definitions) {
+    EXPECT(runner, definition.number >= 1 && definition.number <= 64);
+    EXPECT(runner, !seenNumbers[definition.number]);
+    seenNumbers[definition.number] = true;
+    EXPECT(runner, definition.name != nullptr && definition.name[0] != '\0');
+    EXPECT(runner, names.emplace(definition.name).second);
     EXPECT(runner, jinggua::data::findHexagram(definition.upper,
                                                definition.lower) != nullptr);
+  }
+  for (std::size_t number = 1; number <= 64; ++number) {
+    EXPECT(runner, seenNumbers[number]);
+  }
+
+  // Every ordered lower/upper trigram pair must resolve to exactly one
+  // canonical hexagram (8 x 8 = 64), not merely the listed definitions.
+  const auto& allTrigrams = jinggua::data::allTrigrams();
+  for (const auto& upper : allTrigrams) {
+    for (const auto& lower : allTrigrams) {
+      std::array<jinggua::domain::Yao, 6> pairLines{};
+      for (std::size_t index = 0; index < 3; ++index) {
+        pairLines[index] = yaoAt(
+            static_cast<std::uint8_t>(index + 1),
+            lower.lines[index] == YinYang::Yang ? 7 : 8);
+        pairLines[index + 3] = yaoAt(
+            static_cast<std::uint8_t>(index + 4),
+            upper.lines[index] == YinYang::Yang ? 7 : 8);
+      }
+      const auto resolved = jinggua::domain::createHexagram(pairLines);
+      EXPECT(runner, resolved.has_value());
+      if (resolved.has_value()) {
+        EXPECT_EQ(runner, resolved->lowerTrigram.id, lower.id);
+        EXPECT_EQ(runner, resolved->upperTrigram.id, upper.id);
+        EXPECT(runner, resolved->number >= 1 && resolved->number <= 64);
+        EXPECT(runner, resolved->name != nullptr && resolved->name[0] != '\0');
+      }
+    }
   }
 }
