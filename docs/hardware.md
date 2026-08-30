@@ -85,3 +85,34 @@ bring-up 时的漂移；升级必须单独验证。
 Phase 0 不改变电源管理、不驱动扬声器、不联网，也不写入用户问题。第一次
 真机 Bring-up 请按 README 的 Next Step 先验证刷机、屏幕、按钮和原始 IMU
 数据，再开启更强的 shake 行为。
+
+## Hardware v0.1 Bring-up validation
+
+Tested hardware: M5Stack StickS3
+MCU: ESP32-S3-PICO-1-N8R8
+Date: 2026-08-30
+PlatformIO environment: m5stack-sticks3
+Firmware source: feat/hardware-v0.1-bringup (bring-up diagnostics enabled)
+
+- USB upload: PASS (ESP32-S3-PICO-1, 8MB flash, 8MB PSRAM)
+- USB serial: PASS (Windows dynamically assigned COM port; COM3 during this session)
+- Display initialization: PASS; detected size 135x240
+- Display rotation/readability: CODE VERIFIED; visual confirmation required per device session
+- BtnA: PASS; BtnA -> PrimaryClick, M5.update() active
+- BtnB: NOT VERIFIED in the captured full-flow log
+- BMI270: PASS; accelerometer and gyroscope samples observed
+- Button full flow: PASS; six lines produced in order, index 0 = 初爻, index 5 = 上爻
+- ShakeDetector: EXPERIMENTAL; real triggers observed, but single-shake calibration was not completed and repeated triggers were observed during the trial
+
+First captured button-mode result:
+
+- Lines bottom-to-top: 少阳, 少阴, 老阳, 少阴, 少阴, 少阳
+- Original hexagram: 山火贲 (22)
+- Moving line: 三爻
+- Transformed hexagram: 艮为山 (52)
+
+Shake trial: 8 `TRIGGERED` events were observed during one interactive session; one event in CASTING produced line 1, while additional events were ignored outside the casting state. The current provisional detector requires further calibration.
+
+Known bring-up note: M5Unified emitted transient I2C ack wait diagnostics during startup; display and BMI270 subsequently initialized and operated successfully.
+
+Windows assigns the USB serial COM port dynamically. The project does not require a fixed upload_port or monitor_port.
