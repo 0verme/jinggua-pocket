@@ -93,6 +93,7 @@ MCU: ESP32-S3-PICO-1-N8R8
 Date: 2026-08-30
 PlatformIO environment: m5stack-sticks3
 Firmware source: feat/hardware-v0.1-bringup (bring-up diagnostics enabled)
+Firmware commit: 2ea2845
 
 - USB upload: PASS (ESP32-S3-PICO-1, 8MB flash, 8MB PSRAM)
 - USB serial: PASS (Windows dynamically assigned COM port; COM3 during this session)
