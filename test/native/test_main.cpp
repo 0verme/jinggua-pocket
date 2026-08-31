@@ -7,6 +7,7 @@ void runDivinationFlowTests(TestRunner& runner);
 void runYaoTests(TestRunner& runner);
 void runHexagramTests(TestRunner& runner);
 void runImuTests(TestRunner& runner);
+void runMicrophoneResearchTests(TestRunner& runner);
 void runTransformTests(TestRunner& runner);
 void runOrderingTests(TestRunner& runner);
 void runStateMachineTests(TestRunner& runner);
@@ -18,6 +19,7 @@ int main() {
   runYaoTests(runner);
   runHexagramTests(runner);
   runImuTests(runner);
+  runMicrophoneResearchTests(runner);
   runTransformTests(runner);
   runOrderingTests(runner);
   runStateMachineTests(runner);

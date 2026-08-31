@@ -12,6 +12,7 @@ add_executable(jinggua_native_tests
   test_hexagram.cpp
   test_imu.cpp
   test_main.cpp
+  test_microphone_research.cpp
   test_ordering.cpp
   test_state_machine.cpp
   test_transform.cpp
@@ -29,6 +30,7 @@ add_executable(jinggua_native_tests
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
   ../../src/hardware/imu.cpp
+  ../../src/hardware/microphone_research.cpp
   ../../src/hardware/random.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp

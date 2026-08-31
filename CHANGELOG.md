@@ -11,3 +11,4 @@ All notable changes to `jinggua-pocket` are recorded here.
 - King Wen order mapping for all 64 hexagrams.
 - Button-driven application state machine and basic StickS3 renderer.
 - IMU shake detector interface with provisional calibration values.
+- Opt-in StickS3 microphone research environment with short PCM capture statistics.

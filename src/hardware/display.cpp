@@ -10,7 +10,11 @@ bool Display::begin() noexcept {
 #if defined(ARDUINO)
   auto config = M5.config();
   config.serial_baudrate = 115200;
+#if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  config.internal_mic = true;
+#else
   config.internal_mic = false;
+#endif
   config.internal_spk = false;
   config.output_power = false;
   M5.begin(config);

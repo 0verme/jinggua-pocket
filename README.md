@@ -23,6 +23,9 @@ another divination firmware.
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已有 `ShakeDetector`、`ImuSample` 与 StickS3 读取接口；
   默认阈值是待真机校准的保守起点。
+- 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
+  该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
+  [`docs/microphone-research.md`](docs/microphone-research.md)。
 - UI 是低饱和、黑底、米白与铜色的基础骨架，暂不包含复杂动画或完整
   《周易》文本。
 - v0.1 完全离线：没有 Wi-Fi、Analytics、遥测、设备指纹或第三方埋点。
