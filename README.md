@@ -23,6 +23,9 @@ another divination firmware.
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
   峰间隔与 cooldown；Button 仍可作为 fallback。
+- 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
+  该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
+  [`docs/microphone-research.md`](docs/microphone-research.md)。
 - UI 是低饱和、黑底、米白与铜色的基础骨架，使用 Noto Sans SC Medium
   的 12 px 中文子集，暂不包含复杂动画或完整《周易》文本。
 - v0.1 完全离线：没有 Wi-Fi、Analytics、遥测、设备指纹或第三方埋点。

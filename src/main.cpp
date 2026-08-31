@@ -5,6 +5,7 @@
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/hardware/imu.h"
+#include "jinggua/hardware/microphone_research.h"
 #include "jinggua/hardware/random.h"
 #include "jinggua/ui/renderer.h"
 
@@ -20,6 +21,84 @@ jinggua::hardware::Esp32RandomProvider randomProvider;
 jinggua::application::DivinationSession session(randomProvider);
 jinggua::application::StateMachine stateMachine(session);
 jinggua::ui::Renderer renderer(display);
+
+#if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+jinggua::hardware::StickS3MicrophoneResearch microphoneResearch;
+
+void printMicStats(const char* label,
+                   const jinggua::hardware::MicCaptureStats& stats) {
+  Serial.print("[MicResearch] label=");
+  Serial.println(label);
+  Serial.print("[MicResearch] duration_ms=");
+  Serial.print(stats.elapsedMs);
+  Serial.print(" requested_ms=");
+  Serial.println(stats.requestedDurationMs);
+  Serial.print("[MicResearch] sample_rate_hz=");
+  Serial.print(stats.sampleRateHz);
+  Serial.print(" samples=");
+  Serial.print(stats.sampleCount);
+  Serial.print(" effective_rate_hz=");
+  if (stats.elapsedMs == 0) {
+    Serial.println(0);
+  } else {
+    Serial.println((static_cast<std::uint64_t>(stats.sampleCount) * 1000U) /
+                   stats.elapsedMs);
+  }
+  Serial.print("[MicResearch] encoding=PCM_S16LE channels=mono block_samples=");
+  Serial.print(stats.blockSamples);
+  Serial.print(" block_bytes=");
+  Serial.print(stats.blockBytes);
+  Serial.print(" dma_buffers=");
+  Serial.println(stats.dmaBufferCount);
+  Serial.print("[MicResearch] min=");
+  Serial.print(stats.minimum);
+  Serial.print(" max=");
+  Serial.print(stats.maximum);
+  Serial.print(" peak=");
+  Serial.print(stats.peak);
+  Serial.print(" mean_milli=");
+  Serial.print(stats.meanMilli);
+  Serial.print(" rms_milli=");
+  Serial.print(stats.rmsMilli);
+  Serial.print(" clipped=");
+  Serial.print(stats.clippedSamples);
+  Serial.print(" zero_crossings=");
+  Serial.println(stats.zeroCrossings);
+  Serial.print("[MicResearch] free_heap_before=");
+  Serial.print(stats.freeHeapBefore);
+  Serial.print(" after=");
+  Serial.print(stats.freeHeapAfter);
+  Serial.print(" free_psram_before=");
+  Serial.print(stats.freePsramBefore);
+  Serial.print(" after=");
+  Serial.println(stats.freePsramAfter);
+}
+
+void pollMicResearchCommand() {
+  while (Serial.available() > 0) {
+    const char command = static_cast<char>(Serial.read());
+    const char* label = nullptr;
+    if (command == 'a' || command == 'A') {
+      label = "ambient";
+    } else if (command == 'v' || command == 'V') {
+      label = "voice";
+    } else if (command == 't' || command == 'T') {
+      label = "transient";
+    } else {
+      continue;
+    }
+
+    Serial.print("[MicResearch] capture_start label=");
+    Serial.println(label);
+    jinggua::hardware::MicCaptureStats stats;
+    if (microphoneResearch.capture(stats)) {
+      printMicStats(label, stats);
+    } else {
+      Serial.println("[MicResearch] capture FAIL");
+    }
+  }
+}
+#endif
 
 void renderIfNeeded() {
   if (!stateMachine.isDirty()) {
@@ -51,6 +130,21 @@ void setup() {
   imu.begin();
   Serial.println("[IMU] init OK");
 
+#if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  const bool microphoneReady = microphoneResearch.begin();
+  Serial.print("[MicResearch] init ");
+  Serial.println(microphoneReady ? "OK" : "FAIL");
+  Serial.print("[MicResearch] sample_rate_hz=");
+  Serial.print(microphoneResearch.config().sampleRateHz);
+  Serial.print(" block_samples=");
+  Serial.print(microphoneResearch.config().blockSamples);
+  Serial.print(" dma_buffers=");
+  Serial.print(microphoneResearch.config().dmaBufferCount);
+  Serial.println(" encoding=PCM_S16LE mono");
+  Serial.println(
+      "[MicResearch] commands: a=ambient, v=voice, t=transient; each captures 3s");
+#endif
+
   stateMachine.begin();
   Serial.print("[State] BOOT -> ");
   Serial.println(jinggua::application::appStateName(stateMachine.state()));
@@ -58,6 +152,9 @@ void setup() {
 }
 
 void loop() {
+#if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  pollMicResearchCommand();
+#endif
   const auto previousState = stateMachine.state();
   const auto previousLineCount = stateMachine.session().lineCount();
   auto event = buttons.poll();
