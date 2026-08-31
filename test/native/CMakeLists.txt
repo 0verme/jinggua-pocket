@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(jinggua_native_tests
   test_coin.cpp
+  test_divination_flow.cpp
   test_hexagram.cpp
   test_imu.cpp
   test_main.cpp
@@ -39,7 +40,7 @@ target_include_directories(jinggua_native_tests PRIVATE
 )
 
 if(MSVC)
-  target_compile_options(jinggua_native_tests PRIVATE /W4 /permissive-)
+  target_compile_options(jinggua_native_tests PRIVATE /W4 /permissive- /utf-8)
 else()
   target_compile_options(jinggua_native_tests PRIVATE
     -Wall
