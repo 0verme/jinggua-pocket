@@ -15,6 +15,12 @@ float accelerationMagnitude(const ImuSample& sample) noexcept {
                    sample.accelerationZ * sample.accelerationZ);
 }
 
+float angularVelocityMagnitude(const ImuSample& sample) noexcept {
+  return std::sqrt(sample.angularVelocityX * sample.angularVelocityX +
+                   sample.angularVelocityY * sample.angularVelocityY +
+                   sample.angularVelocityZ * sample.angularVelocityZ);
+}
+
 std::uint32_t elapsedSince(std::uint32_t now,
                            std::uint32_t then) noexcept {
   return now - then;
@@ -30,12 +36,20 @@ ShakeDetector::ShakeDetector(ShakeDetectorConfig config) noexcept
 }
 
 bool ShakeDetector::update(const ImuSample& sample) noexcept {
+  const float acceleration = accelerationMagnitude(sample);
+  const float angularVelocity = angularVelocityMagnitude(sample);
   const bool aboveThreshold =
-      accelerationMagnitude(sample) >= config_.accelerationMagnitudeThresholdG;
+      acceleration >= config_.accelerationMagnitudeThresholdG ||
+      angularVelocity >= config_.angularVelocityMagnitudeThresholdDps;
+  const bool belowReleaseThreshold =
+      acceleration <= config_.releaseAccelerationMagnitudeThresholdG &&
+      angularVelocity <= config_.releaseAngularVelocityMagnitudeThresholdDps;
 
   if (hasLastShake_ &&
       elapsedSince(sample.timestampMs, lastShakeAt_) < config_.cooldownMs) {
-    previousAboveThreshold_ = aboveThreshold;
+    if (belowReleaseThreshold) {
+      readyForPeak_ = true;
+    }
     candidateActive_ = false;
     peakCount_ = 0;
     return false;
@@ -48,32 +62,45 @@ bool ShakeDetector::update(const ImuSample& sample) noexcept {
     peakCount_ = 0;
   }
 
-  if (aboveThreshold && !previousAboveThreshold_) {
-    if (!candidateActive_) {
-      candidateActive_ = true;
-      candidateStartedAt_ = sample.timestampMs;
-      peakCount_ = 0;
-    }
-    ++peakCount_;
-    if (peakCount_ >= config_.requiredPeaks) {
-      hasLastShake_ = true;
-      lastShakeAt_ = sample.timestampMs;
-      candidateActive_ = false;
-      peakCount_ = 0;
-      previousAboveThreshold_ = aboveThreshold;
-      return true;
+  if (belowReleaseThreshold) {
+    readyForPeak_ = true;
+  }
+
+  if (aboveThreshold && readyForPeak_) {
+    const bool sufficientlySeparated =
+        !hasLastPeak_ ||
+        elapsedSince(sample.timestampMs, lastPeakAt_) >=
+            config_.minimumPeakIntervalMs;
+    if (sufficientlySeparated) {
+      if (!candidateActive_) {
+        candidateActive_ = true;
+        candidateStartedAt_ = sample.timestampMs;
+        peakCount_ = 0;
+      }
+      ++peakCount_;
+      lastPeakAt_ = sample.timestampMs;
+      hasLastPeak_ = true;
+      readyForPeak_ = false;
+      if (peakCount_ >= config_.requiredPeaks) {
+        hasLastShake_ = true;
+        lastShakeAt_ = sample.timestampMs;
+        candidateActive_ = false;
+        peakCount_ = 0;
+        return true;
+      }
     }
   }
 
-  previousAboveThreshold_ = aboveThreshold;
   return false;
 }
 
 void ShakeDetector::reset() noexcept {
-  previousAboveThreshold_ = false;
+  readyForPeak_ = true;
   candidateActive_ = false;
   peakCount_ = 0;
   candidateStartedAt_ = 0;
+  hasLastPeak_ = false;
+  lastPeakAt_ = 0;
   hasLastShake_ = false;
   lastShakeAt_ = 0;
 }

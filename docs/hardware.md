@@ -63,27 +63,29 @@ bring-up 时的漂移；升级必须单独验证。
 按钮的电气细节和 IMU 初始化交给官方库，避免重复猜测极性、寄存器或 I2C
 初始化顺序。
 
-## IMU 摇动检测（预留）
+## IMU 摇动检测
 
-`ShakeDetector` 的输入为三轴加速度、三轴角速度和毫秒时间戳。当前逻辑：
+`ShakeDetector` 的输入为三轴加速度、三轴角速度和毫秒时间戳。固件默认启用，
+当前逻辑：
 
-1. 加速度 magnitude 超过阈值时记录 threshold crossing。
-2. 在 detection window 内达到所需 crossing 数才产生一次 SHAKE。
-3. 触发后进入 cooldown，避免一次摇动生成多个爻。
+1. 加速度 magnitude 或角速度 magnitude 超过各自门限时记录一个峰值。
+2. 峰值必须先回到释放门限以下，并满足最小峰间隔。
+3. 在 detection window 内达到所需峰值数才产生一次 SHAKE。
+4. 触发后进入 cooldown，避免一次摇动生成多个爻。
 
-默认值在 `hardware/imu.h` 中，并明确标记为 provisional：
+默认值在 `hardware/imu.h` 中，并作为可审查的校准起点：
 
 - magnitude threshold：`1.6g`
+- angular velocity threshold：`180 dps`
 - detection window：`500ms`
+- minimum peak interval：`80ms`
 - cooldown：`1200ms`
 - required peaks：`2`
 
-这些不是最终产品参数，必须在真实 StickS3 上观察静止、轻拿、一次摇动和
-连续摇动数据后校准。固件默认不启用 Shake 输入；只有显式定义
-`JINGGUA_ENABLE_SHAKE_EXPERIMENTAL=1` 时，ShakeDetector 才会参与起卦。
-Button Mode 不依赖 IMU，因此未校准的 ShakeDetector 不会破坏稳定的 v0.1
-Button Mode。Shake Mode: **EXPERIMENTAL**；Shake Full Flow: **NOT RELEASE
-READY**。
+这些仍需在真实 StickS3 上观察静止、轻拿、一次摇动和连续摇动数据后继续
+校准。Shake 只在 Casting 和未完成的 LineResult 状态被采纳；完成六爻后
+检测器被 reset，不会再生成额外爻。Button 始终可作为 fallback，且两种
+输入都调用同一个 `DivinationSession::castLine()`。
 
 ## 真机安全边界
 
@@ -102,13 +104,13 @@ Firmware commit: 2ea2845
 
 - USB upload: PASS (ESP32-S3-PICO-1, 8MB flash, 8MB PSRAM)
 - USB serial: PASS (Windows dynamically assigned COM port; COM3 during this session)
-- Display initialization: PASS; detected size 135x240; M5GFX built-in UTF-8 Chinese font is selected for on-device result text
-- Display rotation/readability: CODE VERIFIED; Chinese glyph rendering is enabled with M5GFX `efontCN_10`; visual confirmation required per device session
+- Display initialization: PASS; detected size 135x240 on the previous bring-up firmware; the typography branch keeps the same display path and loads the generated Noto Sans SC Medium VLW subset
+- Display rotation/readability: the previous bring-up verified the panel path with `efontCN_10`; this branch adds the 240-glyph anti-aliased subset. Asset/build checks pass, while visual confirmation of the new font remains required per device session
 - BtnA: PASS; BtnA -> PrimaryClick, M5.update() active
 - BtnB: NOT VERIFIED; reopened `COM3 @ 115200` monitor 后再次短按未捕获 BtnB 事件。M5Stack 官方资料与 M5Unified `0.2.21` 实现均确认 `BtnA=KEY1/GPIO11`、`BtnB=KEY2/GPIO12`，当前代码映射一致；因此暂无代码 root cause，仍需确认实际物理按键/电气路径
 - BMI270: PASS; accelerometer and gyroscope samples observed
 - Button full flow: PASS; six lines produced in order, index 0 = 初爻, index 5 = 上爻
-- Shake Detector: EXPERIMENTAL; 默认关闭。此前真实测试一次交互观察到 8 次 `TRIGGERED`，未达到 release-ready 标准
+- Shake Detector: CODE VERIFIED; 默认启用，native tests 覆盖阈值、释放、峰间隔和 cooldown；仍需新固件真机回归
 
 First captured button-mode result:
 
@@ -117,7 +119,9 @@ First captured button-mode result:
 - Moving line: 三爻
 - Transformed hexagram: 艮为山 (52)
 
-Shake trial: one interactive session observed 8 `TRIGGERED` events; one event in CASTING produced line 1, while additional events were ignored outside the casting state. This evidence is retained as experimental only; Shake is not a v0.1 stable capability.
+此前旧版实验逻辑的一次交互曾观察到 8 次 `TRIGGERED`。本 Issue 已加入
+释放门限、最小峰间隔、cooldown，以及完成态 reset；新固件仍应在真机上复测
+正常拿起、明显摇动、单次摇动和连续六次摇动。
 
 ### Bring-up matrix
 
@@ -129,8 +133,8 @@ Shake trial: one interactive session observed 8 `TRIGGERED` events; one event in
 | BtnB | NOT VERIFIED — monitor capture had no event; authoritative mapping matches code, physical input path remains the unresolved root cause |
 | BMI270 | PASS |
 | Button Mode | PASS |
-| Shake Detector | EXPERIMENTAL |
-| Shake Full Flow | NOT RELEASE READY |
+| Shake Detector | CODE VERIFIED — native tests pass; hardware regression pending |
+| Shake Full Flow | CODE VERIFIED — six Shake events complete six lines; hardware regression pending |
 | Transient I2C log | NON-BLOCKING / MONITOR |
 
 Known bring-up note: M5Unified emitted transient I2C `ack wait` diagnostics during startup; display and BMI270 subsequently initialized and operated successfully. This remains NON-BLOCKING / MONITOR; no random delay, I2C clock, or initialization-order change was made.

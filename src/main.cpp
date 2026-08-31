@@ -11,7 +11,7 @@
 
 namespace {
 
-constexpr const char* kFirmwareVersion = "hardware-v0.1";
+constexpr const char* kFirmwareVersion = "hardware-v0.2";
 
 jinggua::hardware::Display display;
 jinggua::hardware::StickS3Buttons buttons;
@@ -179,15 +179,21 @@ void loop() {
     Serial.println(")");
   }
 
-#if JINGGUA_ENABLE_SHAKE_EXPERIMENTAL
-  if (event == jinggua::application::InputEvent::None && hasSample &&
-      shakeDetector.update(sample)) {
+  const auto currentState = stateMachine.state();
+  const bool shakeInputActive =
+      currentState == jinggua::application::AppState::Casting ||
+      (currentState == jinggua::application::AppState::LineResult &&
+       !stateMachine.session().isComplete());
+  bool shakeTriggered = false;
+  if (hasSample && shakeInputActive) {
+    shakeTriggered = shakeDetector.update(sample);
+  } else if (!shakeInputActive) {
+    shakeDetector.reset();
+  }
+  if (event == jinggua::application::InputEvent::None && shakeTriggered) {
     Serial.println("[Shake] TRIGGERED");
     event = jinggua::application::InputEvent::Shake;
   }
-#else
-  (void)shakeDetector;
-#endif
 
   if (event != jinggua::application::InputEvent::None) {
     Serial.print("[Input] ");
@@ -195,6 +201,12 @@ void loop() {
   }
 
   stateMachine.handleInput(event);
+  if (event != jinggua::application::InputEvent::None &&
+      event != jinggua::application::InputEvent::Shake) {
+    // A button action starts a new input gesture; do not let a partial IMU
+    // candidate survive across the Button fallback path.
+    shakeDetector.reset();
+  }
   if (stateMachine.state() != previousState) {
     Serial.print("[State] ");
     Serial.print(jinggua::application::appStateName(previousState));
