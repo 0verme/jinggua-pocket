@@ -1,11 +1,13 @@
 #include <Arduino.h>
 
 #include "jinggua/application/divination_session.h"
+#include "jinggua/application/ring_history_store.h"
 #include "jinggua/application/state_machine.h"
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/hardware/imu.h"
 #include "jinggua/hardware/microphone_research.h"
+#include "jinggua/hardware/preferences_slot_storage.h"
 #include "jinggua/hardware/random.h"
 #include "jinggua/ui/renderer.h"
 
@@ -18,8 +20,10 @@ jinggua::hardware::StickS3Buttons buttons;
 jinggua::hardware::StickS3Imu imu;
 jinggua::hardware::ShakeDetector shakeDetector;
 jinggua::hardware::Esp32RandomProvider randomProvider;
+jinggua::hardware::PreferencesSlotStorage slotStorage;
+jinggua::application::RingHistoryStore historyStore(slotStorage);
 jinggua::application::DivinationSession session(randomProvider);
-jinggua::application::StateMachine stateMachine(session);
+jinggua::application::StateMachine stateMachine(session, &historyStore);
 jinggua::ui::Renderer renderer(display);
 
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
@@ -129,6 +133,14 @@ void setup() {
   Serial.println("[Button] init OK");
   imu.begin();
   Serial.println("[IMU] init OK");
+
+  const bool historyReady = historyStore.begin();
+  Serial.print("[History] init ");
+  Serial.println(historyReady ? "OK" : "FAIL");
+  Serial.print("[History] records=");
+  Serial.println(static_cast<unsigned long>(historyStore.count()));
+  Serial.print("[History] capacity=");
+  Serial.println(static_cast<unsigned long>(historyStore.capacity()));
 
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   const bool microphoneReady = microphoneResearch.begin();
