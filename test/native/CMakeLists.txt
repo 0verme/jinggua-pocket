@@ -15,11 +15,13 @@ add_executable(jinggua_native_tests
   test_microphone_research.cpp
   test_ordering.cpp
   test_state_machine.cpp
+  test_wifi.cpp
   test_transform.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp
   ../../src/application/state_machine.cpp
+  ../../src/application/wifi_controller.cpp
   ../../src/data/hexagrams.cpp
   ../../src/data/trigrams.cpp
   ../../src/domain/coin.cpp
@@ -33,6 +35,7 @@ add_executable(jinggua_native_tests
   ../../src/hardware/imu.cpp
   ../../src/hardware/microphone_research.cpp
   ../../src/hardware/random.cpp
+  ../../src/hardware/wifi_manager.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp
 )

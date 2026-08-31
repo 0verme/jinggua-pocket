@@ -12,6 +12,11 @@ All notable changes to `jinggua-pocket` are recorded here.
 - Button-driven application state machine and basic StickS3 renderer.
 - IMU shake detector interface with provisional calibration values.
 - Opt-in StickS3 microphone research environment with short PCM capture statistics.
+- **Offline-first Wi-Fi connection flow (Issue #7):** `WifiController` interface
+  (ports/adapter) + `Esp32WifiManager` non-blocking implementation.  Wi-Fi is
+  off by default; only the user can trigger a connection from the Settings page.
+  States: Off → Connecting → Connected / Failed / Timeout.  No auto-retry.
+  Credentials injected via environment variables, never committed.
 
 ### Changed
 

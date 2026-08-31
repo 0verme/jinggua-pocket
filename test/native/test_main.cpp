@@ -11,6 +11,7 @@ void runMicrophoneResearchTests(TestRunner& runner);
 void runTransformTests(TestRunner& runner);
 void runOrderingTests(TestRunner& runner);
 void runStateMachineTests(TestRunner& runner);
+void runWifiTests(TestRunner& runner);
 
 int main() {
   TestRunner runner;
@@ -23,6 +24,7 @@ int main() {
   runTransformTests(runner);
   runOrderingTests(runner);
   runStateMachineTests(runner);
+  runWifiTests(runner);
 
   std::cout << "jinggua native tests: " << runner.assertions()
             << " assertions, " << runner.failures() << " failures\n";

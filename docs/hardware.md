@@ -59,6 +59,10 @@ bring-up 时的漂移；升级必须单独验证。
   `ImuSample`。
 - `Display` 使用 `M5.Display` 的 `fillScreen`、`drawString` 和 `drawLine`。
 - `Esp32RandomProvider` 使用 `esp_random()`，不让 `random()` 散落在业务代码。
+- `Esp32WifiManager` 实现 `application::WifiController` 接口：
+  `WiFi.begin()` 非阻塞、`update(nowMs)` 轮询推进、15 秒超时；
+  凭据来自编译期宏 `JINGGUA_WIFI_SSID` / `JINGGUA_WIFI_PASSWORD`，
+  通过 `tools/wifi_credentials.py` extra_script 从环境变量注入。
 
 按钮的电气细节和 IMU 初始化交给官方库，避免重复猜测极性、寄存器或 I2C
 初始化顺序。
@@ -142,3 +146,29 @@ Known bring-up note: M5Unified emitted transient I2C `ack wait` diagnostics duri
 The authoritative button mapping used for this verification is M5Stack StickS3 documentation plus the pinned M5Unified `0.2.21` implementation: `BtnA` reads KEY1/GPIO11 and `BtnB` reads KEY2/GPIO12.
 
 Windows assigns the USB serial COM port dynamically. The project does not require a fixed upload_port or monitor_port.
+
+## Wi-Fi（Issue #7 新增）
+
+`Esp32WifiManager` 是对 ESP32 Arduino `WiFi` 的适配器，实现
+`application::WifiController` 接口：
+
+- 默认 `Off`，只有用户从设置页显式触发才 `WiFi.begin()`。
+- 连接由主循环 `update(nowMs)` 非阻塞推进，不 `delay` 等待；
+  `kConnectionTimeoutMs = 15000` 超时后停止尝试，等待用户重试/关闭。
+- `Connected` / `Timeout` 后不自动重连，满足保守策略。
+- 凭据来自编译期宏 `JINGGUA_WIFI_SSID` / `JINGGUA_WIFI_PASSWORD`，
+  由 `tools/wifi_credentials.py` 从环境变量注入；未配置时固件仍可
+  编译/离线运行，设置页提示「未配置 Wi-Fi」。
+- 日志使用 `[WiFi]` 前缀，不打印密码；UI 只显示 SSID。
+
+### Wi-Fi Provisioning TODO
+
+本 Issue 只完成连接流程，未实现正式的凭据下发。未来候选方案（另行评估）：
+
+- BLE / Serial 配网向导（设备进入 AP 模式 + App 下发 SSID/密码）
+- 二维码配网（SmartConfig / WPA2-PSK 解析）
+- WebServer 配网页
+- 凭据持久化到 NVS
+
+在实现 provisioning 之前，真机 Wi-Fi 验证使用构建期环境变量（见 README
+「Wi-Fi 开发配置」），不会把真实 SSID/密码提交到仓库。

@@ -30,6 +30,21 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
     case application::AppState::ResetConfirm:
       renderResetConfirm(display_);
       break;
+    case application::AppState::Settings:
+      renderWifiSettings(display_, stateMachine.wifi());
+      break;
+    case application::AppState::WifiConnecting:
+      renderWifiConnecting(display_);
+      break;
+    case application::AppState::WifiConnected:
+      renderWifiConnected(display_, stateMachine.wifi());
+      break;
+    case application::AppState::WifiFailed:
+      renderWifiFailed(display_, stateMachine.wifi());
+      break;
+    case application::AppState::WifiTimeout:
+      renderWifiTimeout(display_);
+      break;
   }
 }
 
