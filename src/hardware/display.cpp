@@ -2,6 +2,8 @@
 
 #if defined(ARDUINO)
 #include <M5Unified.h>
+
+#include "jinggua/hardware/font_data.h"
 #endif
 
 namespace jinggua::hardware {
@@ -15,6 +17,7 @@ bool Display::begin() noexcept {
   config.output_power = false;
   M5.begin(config);
   ready_ = true;
+  fontReady_ = M5.Display.loadFont(kChineseFontData);
 #else
   ready_ = true;
 #endif
@@ -35,9 +38,13 @@ void Display::drawText(const char* text, int x, int y, Color color,
                        std::uint8_t textSize) noexcept {
 #if defined(ARDUINO)
   if (ready_) {
-    // Font0 only covers the default Latin glyphs. Use M5GFX's built-in
-    // UTF-8-capable Chinese font so the v0.1 result remains readable on-device.
-    M5.Display.setFont(&fonts::efontCN_10);
+    if (!fontReady_) {
+      // Keep the built-in Latin font as a last-resort fallback if a font asset
+      // is corrupted or cannot be allocated during hardware initialization.
+      // Do not reference the full built-in Chinese font: that would add 158 KB
+      // back to the firmware even though the fallback is rarely used.
+      M5.Display.setFont(&fonts::Font0);
+    }
     M5.Display.setTextColor(color);
     M5.Display.setTextSize(textSize);
     M5.Display.drawString(text, x, y);

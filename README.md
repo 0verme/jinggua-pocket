@@ -23,8 +23,8 @@ another divination firmware.
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已有 `ShakeDetector`、`ImuSample` 与 StickS3 读取接口；
   默认阈值是待真机校准的保守起点。
-- UI 是低饱和、黑底、米白与铜色的基础骨架，暂不包含复杂动画或完整
-  《周易》文本。
+- UI 是低饱和、黑底、米白与铜色的基础骨架，使用 Noto Sans SC Medium
+  的 12 px 中文子集，暂不包含复杂动画或完整《周易》文本。
 - v0.1 完全离线：没有 Wi-Fi、Analytics、遥测、设备指纹或第三方埋点。
 
 ## Hardware
@@ -87,6 +87,8 @@ data (8 trigrams + 64 hexagrams)
 - `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU 和显示适配。
 - `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算。
 - `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
+- `tools/generate_font_assets.py` 从 Noto Sans SC 生成实际文案子集；
+  `docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
 
 详见：
 
@@ -109,6 +111,12 @@ ctest --test-dir build/native --output-on-failure
 测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序
 以及完整状态流。Host tests 使用 deterministic `RandomProvider`，不会调用
 Arduino `random()`。
+
+字体子集完整性检查：
+
+```bash
+python tools/check_font_asset.py
+```
 
 ### StickS3 firmware
 
