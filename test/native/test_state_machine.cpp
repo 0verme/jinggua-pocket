@@ -56,4 +56,33 @@ void runStateMachineTests(TestRunner& runner) {
   EXPECT_EQ(runner, stateMachine.state(),
             jinggua::application::AppState::Prepare);
   EXPECT_EQ(runner, session.lineCount(), static_cast<std::size_t>(0));
+
+  // Shake input can advance directly from one line result to the next line
+  // result, so six gestures complete a session without button acknowledgements.
+  std::vector<jinggua::domain::CoinSide> shakeSequence;
+  shakeSequence.reserve(18);
+  for (std::size_t index = 0; index < 6; ++index) {
+    shakeSequence.push_back(jinggua::domain::CoinSide::Front);
+    shakeSequence.push_back(jinggua::domain::CoinSide::Back);
+    shakeSequence.push_back(jinggua::domain::CoinSide::Back);
+  }
+  SequenceRandomProvider shakeRandom(std::move(shakeSequence));
+  jinggua::application::DivinationSession shakeSession(shakeRandom);
+  jinggua::application::StateMachine shakeStateMachine(shakeSession);
+  shakeStateMachine.begin();
+  shakeStateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
+  shakeStateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
+
+  for (std::size_t index = 0; index < 6; ++index) {
+    shakeStateMachine.handleInput(jinggua::application::InputEvent::Shake);
+    EXPECT_EQ(runner, shakeSession.lineCount(), index + 1);
+    EXPECT_EQ(runner, shakeStateMachine.state(),
+              jinggua::application::AppState::LineResult);
+  }
+  EXPECT(runner, shakeSession.isComplete());
+  EXPECT_EQ(runner, shakeRandom.consumed(), static_cast<std::size_t>(18));
+
+  // A seventh gesture after completion cannot add another line.
+  shakeStateMachine.handleInput(jinggua::application::InputEvent::Shake);
+  EXPECT_EQ(runner, shakeSession.lineCount(), static_cast<std::size_t>(6));
 }

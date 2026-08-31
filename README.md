@@ -12,7 +12,7 @@ another divination firmware.
 长期愿景是让设备完成实体摇卦，在本地生成六爻、本卦、动爻与之卦，再
 由用户明确触发 Wi-Fi 联动，把完整解卦、历史与分享交给 JingGua Web。
 
-当前仓库只做 **Phase 0 工程初始化 + Hardware v0.1 离线骨架**：先把领域
+当前仓库只做 **Phase 0 工程初始化 + Hardware v0.2 离线骨架**：先把领域
 逻辑、输入抽象、状态机和真机硬件边界建立清楚，不提前引入云端、AI 或
 用户数据收集。
 
@@ -21,8 +21,8 @@ another divination firmware.
 - PlatformIO + Arduino Framework 工程已固定到 `m5stack-sticks3`。
 - Button Mode 已实现：每次按键生成一爻，严格从初爻到上爻。
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
-- IMU Shake Mode 已有 `ShakeDetector`、`ImuSample` 与 StickS3 读取接口；
-  默认阈值是待真机校准的保守起点。
+- IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
+  峰间隔与 cooldown；Button 仍可作为 fallback。
 - UI 是低饱和、黑底、米白与铜色的基础骨架，暂不包含复杂动画或完整
   《周易》文本。
 - v0.1 完全离线：没有 Wi-Fi、Analytics、遥测、设备指纹或第三方埋点。
