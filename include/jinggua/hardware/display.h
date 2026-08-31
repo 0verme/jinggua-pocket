@@ -10,6 +10,7 @@ class Display final {
  public:
   bool begin() noexcept;
   bool isReady() const noexcept { return ready_; }
+  bool isFontReady() const noexcept { return fontReady_; }
 
   void clear(Color color) noexcept;
   void drawText(const char* text, int x, int y, Color color,
@@ -21,6 +22,7 @@ class Display final {
 
  private:
   bool ready_{false};
+  bool fontReady_{false};
 };
 
 }  // namespace jinggua::hardware

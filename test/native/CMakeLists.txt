@@ -28,6 +28,7 @@ add_executable(jinggua_native_tests
   ../../src/domain/yao.cpp
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
+  ../../src/hardware/font_data.cpp
   ../../src/hardware/imu.cpp
   ../../src/hardware/random.cpp
   ../../src/ui/renderer.cpp

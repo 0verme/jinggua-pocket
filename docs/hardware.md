@@ -104,8 +104,8 @@ Firmware commit: 2ea2845
 
 - USB upload: PASS (ESP32-S3-PICO-1, 8MB flash, 8MB PSRAM)
 - USB serial: PASS (Windows dynamically assigned COM port; COM3 during this session)
-- Display initialization: PASS; detected size 135x240; M5GFX built-in UTF-8 Chinese font is selected for on-device result text
-- Display rotation/readability: CODE VERIFIED; Chinese glyph rendering is enabled with M5GFX `efontCN_10`; visual confirmation required per device session
+- Display initialization: PASS; detected size 135x240 on the previous bring-up firmware; the typography branch keeps the same display path and loads the generated Noto Sans SC Medium VLW subset
+- Display rotation/readability: the previous bring-up verified the panel path with `efontCN_10`; this branch adds the 240-glyph anti-aliased subset. Asset/build checks pass, while visual confirmation of the new font remains required per device session
 - BtnA: PASS; BtnA -> PrimaryClick, M5.update() active
 - BtnB: NOT VERIFIED; reopened `COM3 @ 115200` monitor 后再次短按未捕获 BtnB 事件。M5Stack 官方资料与 M5Unified `0.2.21` 实现均确认 `BtnA=KEY1/GPIO11`、`BtnB=KEY2/GPIO12`，当前代码映射一致；因此暂无代码 root cause，仍需确认实际物理按键/电气路径
 - BMI270: PASS; accelerometer and gyroscope samples observed
