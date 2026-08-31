@@ -32,6 +32,7 @@ class StateMachine final {
 
  private:
   void transitionTo(AppState next) noexcept;
+  void castLine() noexcept;
   void handleResultAction() noexcept;
 
   DivinationSession& session_;
