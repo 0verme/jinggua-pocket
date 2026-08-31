@@ -17,7 +17,8 @@ WELCOME ── PRIMARY_CLICK ──> PREPARE
                                │ cast one line
                                ▼
                          LINE_RESULT
-                          │ PRIMARY_CLICK
+                          │ PRIMARY_CLICK → CASTING (not complete)
+                          │ SHAKE → cast next line (not complete)
               ┌───────────┴───────────┐
               │ not complete          │ complete
               ▼                       ▼
@@ -42,11 +43,13 @@ WELCOME ── PRIMARY_CLICK ──> PREPARE
 | `PrimaryClick` | StickS3 `BtnA` | 页面前进、Button 起一爻 |
 | `SecondaryClick` | StickS3 `BtnB` | 取消重新起卦 |
 | `LongPress` | M5Unified hold | 确认重新起卦 |
-| `Shake` | `ShakeDetector` | 仅在显式启用 experimental config 时可在 Casting 状态替代按钮起一爻 |
+| `Shake` | `ShakeDetector` | Casting 状态起一爻；未完成时在 LineResult 直接进入下一爻 |
 | `None` | 无输入 | 不改变状态 |
 
-Shake 接口保留在应用事件路径，但默认 compile-time disabled，且参数仍需真机校准；Button Mode 是默认
-且可独立完成 v0.1。
+ShakeDetector 默认启用，使用加速度/角速度门限、释放门限、500 ms 检测窗口、
+80 ms 最小峰间隔和 1200 ms cooldown。只在 Casting 或未完成的 LineResult
+采样；六爻完成后会重置检测器，因此后续摇动不会继续生成爻。Button 仍可在
+所有原有页面作为 fallback 使用。
 
 ## 渲染约束
 

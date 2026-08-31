@@ -55,13 +55,15 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       break;
     case AppState::Casting:
       if (event == InputEvent::PrimaryClick || event == InputEvent::Shake) {
-        if (session_.castLine()) {
-          transitionTo(AppState::LineResult);
-        }
+        castLine();
       }
       break;
     case AppState::LineResult:
-      if (event == InputEvent::PrimaryClick) {
+      if (event == InputEvent::Shake && !session_.isComplete()) {
+        // Shake is an acknowledgement and the next cast in one gesture, so
+        // six shakes can complete a session without requiring button input.
+        castLine();
+      } else if (event == InputEvent::PrimaryClick) {
         transitionTo(session_.isComplete() ? AppState::HexagramResult
                                             : AppState::Casting);
       }
@@ -85,6 +87,15 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(resetReturnState_);
       }
       break;
+  }
+}
+
+void StateMachine::castLine() noexcept {
+  if (session_.castLine()) {
+    transitionTo(AppState::LineResult);
+    // The state does not change when Shake advances from one result to the
+    // next, but the renderer still needs to show the new line.
+    dirty_ = true;
   }
 }
 
