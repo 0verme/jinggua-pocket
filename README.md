@@ -30,11 +30,16 @@ another divination firmware.
 - **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
   → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
   接入；真实电流、唤醒稳定性和续航仍为 `PENDING DEVICE VALIDATION`。
+- **声音反馈已实现（Issue #3）**：使用短合成 tone 提供 Start、Cast、Complete
+  和 Error 确认；固定单 channel、非阻塞、队列满时丢弃，Settings 长按可
+  runtime mute。默认固件启用 Speaker，麦克风 research environment 保持
+  Speaker 关闭。
 - 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
   该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
   [`docs/microphone-research.md`](docs/microphone-research.md)。
-- UI 是低饱和、黑底、米白与铜色的基础骨架，使用 Noto Sans SC Medium
-  的 12 px 中文子集，暂不包含复杂动画或完整《周易》文本。
+- UI 已针对 StickS3 的 135×240 portrait 小屏完成基础 polish：一屏一个主要
+  动作、少文字、大字号、强层级，使用统一 layout/theme/typography constants；
+  Pocket 只展示本卦、动爻与之卦，不内置完整《周易》文本。
 - v0.2 完全离线运行起卦，Wi-Fi 只在用户明确动作后开启。
 
 ## Hardware
@@ -48,6 +53,7 @@ another divination firmware.
 | Display driver | M5Unified / M5GFX，StickS3 内置 ST7789P3 |
 | IMU | BMI270，通过 M5Unified `IMU_Class` |
 | Button API | M5Unified `M5.BtnA` / `M5.BtnB` |
+| Audio | M5Unified `M5.Speaker` / ES8311 I2S TX（普通固件） |
 
 PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录在
 [`docs/hardware.md`](docs/hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。
@@ -65,11 +71,11 @@ PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录�
 
 ### Hardware v0.1
 
-- 启动页：`静卦 / 安静地问一问`
+- 启动页：`静卦 / 摇一摇 / 或按 A`
 - 准备页：默念所问之事
-- Button Mode：按键触发 6 次起卦
-- 每次显示三枚铜钱、爻类型和进度
-- 结果页：本卦名称、卦序、上卦/下卦基础数据、动爻和之卦
+- Casting：显示当前爻序和三枚铜钱，Shake 为主动作，Button 为 fallback
+- LineResult：CoinAnimation 结束后显示三枚铜钱、阴/阳、静爻/动爻和下一步
+- 结果页：本卦名称、完整六爻图、动爻和之卦；无动爻时不进入空的之卦页
 - `InputEvent` 预留 `SHAKE`，硬件摇动检测不会侵入领域层
 
 ### 明确不在本阶段
@@ -94,11 +100,12 @@ data (8 trigrams + 64 hexagrams)
 
 - `domain/` 只依赖 C++ 标准库，不依赖屏幕、按钮、M5Stack SDK 或 Arduino。
 - `application/` 通过 `RandomProvider` 接口取得铜钱输入，并管理六次起卦。
-- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU、显示和电源适配。
+- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU、显示、电源和音频适配。
 - `PowerManager` 是可在主机测试的 inactivity 状态逻辑；
   `StickS3PowerController` 将其映射到 Display brightness、Display Off 和
   ESP32-S3 light sleep。
-- `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算。
+- `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算；
+  `ui/layout.h`、`ui/theme.h`、`ui/typography.h` 统一小屏布局、颜色和字号。
 - `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
 - `tools/generate_font_assets.py` 从 Noto Sans SC 生成实际文案子集；
   `docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
@@ -110,6 +117,8 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/state-machine.md`](docs/state-machine.md)
 - [`docs/power-management.md`](docs/power-management.md)
 - [`docs/coin-animation.md`](docs/coin-animation.md)
+- [`docs/audio-feedback.md`](docs/audio-feedback.md)
+- [`docs/ui-guidelines.md`](docs/ui-guidelines.md)
 
 ## Development
 
@@ -173,7 +182,7 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
 详见 [`docs/roadmap.md`](docs/roadmap.md)。
 
 - **v0.1**：StickS3、Button 起卦、三枚铜钱、六爻、本卦、动爻、之卦、离线。
-- **v0.2**：IMU Shake、铜钱动画、音效、UI polish。
+- **v0.2**：IMU Shake、铜钱动画、音效、135×240 UI polish（Issue #6）。
 - **v0.3**：用户明确触发 Wi-Fi、JingGua API、设备绑定、二维码、手机完整解卦。
 - **v0.4**：历史记录与 Web / Device 同步。
 - **v0.5**：麦克风与语音问事。

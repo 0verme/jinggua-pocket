@@ -2,6 +2,8 @@
 
 #include <cstdint>
 
+#include "jinggua/ui/layout.h"
+#include "jinggua/ui/theme.h"
 #include "jinggua/ui/typography.h"
 
 namespace jinggua::ui {
@@ -14,10 +16,6 @@ constexpr std::uint32_t kMediumSpinPeriodMs = 76;
 constexpr std::uint32_t kSlowSpinPeriodMs = 112;
 constexpr std::uint32_t kFastSpinUntilMs = 160;
 constexpr std::uint32_t kMediumSpinUntilMs = 320;
-
-constexpr hardware::Color kBlack = 0x0000;
-constexpr hardware::Color kIvory = 0xFFDF;
-constexpr hardware::Color kCopper = 0xB9A0;
 
 std::uint8_t interpolateWidth(std::uint8_t from, std::uint8_t to,
                              std::uint32_t progress,
@@ -154,24 +152,25 @@ CoinAnimationFrame CoinAnimation::settlingFrame(std::uint32_t elapsedMs,
 void drawCoinAnimation(hardware::Display& display,
                        const CoinAnimation& animation,
                        int centerY) noexcept {
-  const int centerX = display.width() / 2;
-  const int spacing = display.width() >= 180 ? 54 : 36;
-  const int radiusY = display.height() >= 180 ? 22 : 14;
-
   for (std::size_t index = 0; index < 3; ++index) {
     const auto& frame = animation.frame(index);
-    const int offset = static_cast<int>(index) - 1;
-    const int coinCenterX = centerX + offset * spacing;
-    const int radiusX =
-        2 + (16 * static_cast<int>(frame.widthPercent)) / 100;
+    const int coinCenterX = layout::coinCenterX(display.width(), index);
+    const int radiusX = layout::kCoinAnimationMinRadiusX +
+                        (layout::kCoinAnimationRadiusXRange *
+                         static_cast<int>(frame.widthPercent)) /
+                            100;
 
-    display.fillEllipse(coinCenterX, centerY, radiusX, radiusY, kCopper);
-    display.drawEllipse(coinCenterX, centerY, radiusX, radiusY, kIvory);
-    if (radiusX >= 6) {
+    display.fillEllipse(coinCenterX, centerY, radiusX,
+                        layout::kCoinAnimationRadiusY, theme::kAccent);
+    display.drawEllipse(coinCenterX, centerY, radiusX,
+                        layout::kCoinAnimationRadiusY, theme::kText);
+    if (radiusX >= layout::kCoinAnimationVisibleRadiusX) {
       const char* symbol =
           frame.side == domain::CoinSide::Front ? "●" : "○";
-      display.drawText(symbol, coinCenterX - 6, centerY - 6, kBlack,
-                       typography::kBody);
+      display.drawText(symbol,
+                       coinCenterX - layout::kCoinAnimationSymbolOffset,
+                       centerY - layout::kCoinAnimationSymbolYOffset,
+                       theme::kBackground, typography::kSecondary);
     }
   }
 }

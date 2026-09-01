@@ -13,11 +13,14 @@ bool Display::begin() noexcept {
   auto config = M5.config();
   config.serial_baudrate = 115200;
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  // The research firmware owns the ES8311 input path and deliberately keeps
+  // the output path disabled; see docs/audio-feedback.md for the boundary.
   config.internal_mic = true;
+  config.internal_spk = false;
 #else
   config.internal_mic = false;
+  config.internal_spk = true;
 #endif
-  config.internal_spk = false;
   config.output_power = false;
   M5.begin(config);
   ready_ = true;
@@ -140,17 +143,17 @@ void Display::fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
 
 int Display::width() const noexcept {
 #if defined(ARDUINO)
-  return ready_ ? M5.Display.width() : 240;
+  return ready_ ? M5.Display.width() : 135;
 #else
-  return 240;
+  return 135;
 #endif
 }
 
 int Display::height() const noexcept {
 #if defined(ARDUINO)
-  return ready_ ? M5.Display.height() : 135;
+  return ready_ ? M5.Display.height() : 240;
 #else
-  return 135;
+  return 240;
 #endif
 }
 

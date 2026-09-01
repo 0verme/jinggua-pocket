@@ -8,6 +8,7 @@
 #include <utility>
 #include <vector>
 
+#include "jinggua/application/audio_controller.h"
 #include "jinggua/application/random_provider.h"
 #include "jinggua/application/slot_storage.h"
 #include "jinggua/application/wifi_controller.h"
@@ -167,6 +168,37 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   std::vector<std::size_t> sizes_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
+};
+
+// Fake AudioController for StateMachine tests. It models the hardware
+// boundary: disabled output is not counted as playback.
+class FakeAudioController final : public jinggua::application::AudioController {
+ public:
+  void play(jinggua::application::SoundCue cue) noexcept override {
+    if (enabled_) {
+      cues_.push_back(cue);
+    }
+  }
+
+  void setEnabled(bool enabled) noexcept override { enabled_ = enabled; }
+
+  bool enabled() const noexcept override { return enabled_; }
+
+  std::size_t count(jinggua::application::SoundCue cue) const noexcept {
+    std::size_t matches = 0;
+    for (const auto item : cues_) {
+      if (item == cue) {
+        ++matches;
+      }
+    }
+    return matches;
+  }
+
+  std::size_t playbackCount() const noexcept { return cues_.size(); }
+
+ private:
+  bool enabled_{true};
+  std::vector<jinggua::application::SoundCue> cues_;
 };
 
 // Fake WifiController for StateMachine tests. Default state is Off.

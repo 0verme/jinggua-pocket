@@ -67,6 +67,10 @@ bring-up 时的漂移；升级必须单独验证。
   `WiFi.begin()` 非阻塞、`update(nowMs)` 轮询推进、15 秒超时；
   凭据来自编译期宏 `JINGGUA_WIFI_SSID` / `JINGGUA_WIFI_PASSWORD`，
   通过 `tools/wifi_credentials.py` extra_script 从环境变量注入。
+- `StickS3AudioController` 实现 `application::AudioController` 接口：普通固件
+  使用 M5Unified `Speaker_Class` 的 ES8311 TX 路径；声音 cue 由后台 task
+  异步播放，且使用固定 channel 限制队列。硬件审计、codec 边界与真机矩阵见
+  [`docs/audio-feedback.md`](audio-feedback.md)。
 
 按钮的电气细节和 IMU 初始化交给官方库，避免重复猜测极性、寄存器或 I2C
 初始化顺序。
@@ -112,9 +116,15 @@ PENDING DEVICE VALIDATION
 
 ## 真机安全边界
 
-Phase 0 不驱动扬声器、不自动联网，也不写入用户问题。第一次真机 Bring-up
-请按 README 的 Next Step 先验证刷机、屏幕、按钮和原始 IMU 数据，再按
+Phase 0 不自动联网，也不写入用户问题。第一次真机 Bring-up 请按 README 的
+Next Step 先验证刷机、屏幕、按钮和原始 IMU 数据，再按
 [`docs/power-management.md`](power-management.md) 的矩阵验证电源路径。
+
+声音反馈只在普通 `m5stack-sticks3` environment 开启，默认使用 48/255 的
+保守音量和短合成 tone；`m5stack-sticks3-mic-research` 明确关闭 Speaker，
+避免与 ES8311 麦克风研究路径争用。声音播放不改变电源管理策略、不联网，也
+不写入用户问题；完成电源路径验证后，再按
+[`docs/audio-feedback.md`](audio-feedback.md) 的矩阵验证音量、听感和并发行为。
 
 ## Hardware v0.1 Bring-up validation
 

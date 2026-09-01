@@ -23,6 +23,10 @@ All notable changes to `jinggua-pocket` are recorded here.
 
 ### Changed
 
+- Polished the 135×240 StickS3 Pocket UI around one primary action per screen,
+  shared layout/theme/typography constants, compact divination results, and
+  user-facing History/Wi-Fi language.
+- Re-generated the Noto Sans SC subset for the updated firmware copy.
 - Enabled StickS3 shake casting with acceleration/gyro thresholds, peak
   release/debounce, and cooldown protection.
 - A sequence of six Shake events now completes six lines; Button casting

@@ -18,7 +18,8 @@
 - IMU Shake Mode 真机校准
 - 轻量铜钱翻转动画
 - 音效（在明确 scope 后）
-- UI polish
+- **135×240 Pocket UI polish（Issue #6）**：统一布局/字体层级、起卦流程、
+  本卦/动爻/之卦、History 与 Wi-Fi 页面；真机视觉验收仍待完成。
 - **用户触发的离线优先 Wi-Fi 流程（Issue #7）**：设置页显式连接、
   非阻塞异步、15 秒超时、失败/超时不自动重连、用户主动关闭。
 - **自动息屏与低功耗管理（Issue #5）**：`Active → Dim → Display Off →
@@ -57,9 +58,11 @@
 
 ## 下一步
 
-> **Hardware v0.1 真机 Bring-up**
+> **StickS3 UI visual validation**
 
-StickS3 到手后，按以下顺序推进：
+Issue #6 的代码与 native layout coverage 已完成；在设备上验证字体、动画和
+各页面边界后，再关闭 **PENDING DEVICE VISUAL VALIDATION**。随后按以下顺序
+继续硬件 Bring-up：
 
 1. 第一次刷机并确认串口日志。
 2. 验证屏幕方向、清屏、文字与六爻线段。

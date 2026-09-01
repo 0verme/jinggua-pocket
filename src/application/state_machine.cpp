@@ -49,6 +49,22 @@ StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
                            HistoryStore* history) noexcept
     : session_(session), history_(history), wifi_(&wifi) {}
 
+void StateMachine::setAudioController(AudioController& audio) noexcept {
+  audio_ = &audio;
+  audio_->setEnabled(soundEnabled_);
+}
+
+void StateMachine::setSoundEnabled(bool enabled) noexcept {
+  if (soundEnabled_ == enabled) {
+    return;
+  }
+  soundEnabled_ = enabled;
+  if (audio_ != nullptr) {
+    audio_->setEnabled(enabled);
+  }
+  dirty_ = true;
+}
+
 void StateMachine::begin() noexcept {
   if (state_ == AppState::Boot) {
     transitionTo(AppState::Welcome);
@@ -79,6 +95,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       if (event == InputEvent::PrimaryClick) {
         session_.reset();
         transitionTo(AppState::Casting);
+        playSound(SoundCue::Start);
       }
       break;
     case AppState::Casting:
@@ -135,6 +152,10 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         }
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(AppState::Welcome);
+      } else if (event == InputEvent::LongPress) {
+        // Keep the existing Wi-Fi settings flow on A/B and use the existing
+        // long-press gesture for the small runtime-only sound toggle.
+        toggleSoundEnabled();
       }
       break;
     case AppState::WifiConnecting:
@@ -215,11 +236,20 @@ void StateMachine::finishLineAnimation() noexcept {
 void StateMachine::castLine() noexcept {
   if (session_.castLine()) {
     lineAnimationActive_ = true;
+    // The final line uses Complete instead of Cast, so one gesture produces
+    // one cue and never plays both confirmations at the same time.
+    playSound(session_.isComplete() ? SoundCue::Complete : SoundCue::Cast);
     persistIfComplete();
     transitionTo(AppState::LineResult);
     // The state does not change when Shake advances from one result to the
     // next, but the renderer still needs to show the new line.
     dirty_ = true;
+  }
+}
+
+void StateMachine::playSound(SoundCue cue) noexcept {
+  if (soundEnabled_ && audio_ != nullptr) {
+    audio_->play(cue);
   }
 }
 
@@ -265,6 +295,11 @@ void StateMachine::transitionTo(AppState next) noexcept {
     historyCursor_ = (history_ != nullptr && history_->count() > 0)
                          ? history_->count() - 1
                          : 0;
+  }
+  if (next == AppState::WifiFailed || next == AppState::WifiTimeout) {
+    // A failure screen is entered once per failed attempt; ordinary ignored
+    // button input remains silent and cannot spam the error cue.
+    playSound(SoundCue::Error);
   }
   dirty_ = true;
 }

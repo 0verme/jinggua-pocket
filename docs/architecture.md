@@ -20,8 +20,9 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 └──────────────────────────────────────┘
              ▲                 ▲
              │ ports           │ adapters
-   RandomProvider     StickS3 Display/Buttons/IMU/Power
-  WifiController       PowerHardware / WifiManager
+   RandomProvider       StickS3 Display/Buttons/IMU/Power/Audio
+  WifiController        PowerHardware / Esp32WifiManager
+  AudioController       StickS3AudioController
 ```
 
 ### Domain
@@ -58,6 +59,10 @@ polling profile 和 light-sleep request；它不依赖 Arduino、M5Unified 或
   只有用户显式触发才 `WiFi.begin()`；连接由主循环 `update(nowMs)` 非阻塞
   推进，15 秒超时，失败/超时后不自动重连。凭据只通过构建期环境变量
   注入，不提交到仓库。
+- `StickS3AudioController` 实现 `AudioController` 接口：应用层只发出
+  `SoundCue`，硬件层使用 M5Unified 的异步 ES8311 Speaker 路径，不把
+  `M5.Speaker` 泄漏到状态机。普通固件启用 Speaker，麦克风 research
+  environment 明确关闭 Speaker；详见 [`audio-feedback.md`](audio-feedback.md)。
 
 ## Power management（Issue #5）
 
@@ -78,6 +83,18 @@ history，只恢复显示、重置计时并强制渲染当前 AppState。
 `Renderer` 根据 `AppState` 选择 screen；六爻绘制时故意按 `5 -> 0` 显示，
 所以屏幕上上爻在最上方、初爻在最下方，而不修改领域数组。
 
+Pocket UI 是针对 135×240 portrait 的独立信息层，不把网页缩放到设备上：
+
+- `include/jinggua/ui/layout.h` 集中管理 margin、safe area、页眉/页脚、铜钱
+  间距、六爻线宽和行距，并提供纯布局校验 helper。
+- `include/jinggua/ui/typography.h` 只提供语义字号与行高；页面不写私有的
+  `setTextSize` 数字。
+- `include/jinggua/ui/theme.h` 集中管理背景、正文、强调色和辅助色。
+- 每个页面遵守“一屏一个主要动作”，结果只展示本卦、动爻和之卦；完整解卦
+  文本留给未来手机端。
+- `CoinAnimation` 仍由 `Renderer` 管理，动画期间输入由 `StateMachine` 屏蔽，
+  screen 只负责标题、等待提示和动画结束后的结果层级。
+
 ## 依赖规则
 
 1. Domain 不依赖 Hardware/UI。
@@ -95,7 +112,8 @@ M5.BtnA / M5.BtnB
 InputEvent::PrimaryClick
         │
         ▼
-StateMachine ── cast ──> DivinationSession
+  StateMachine ── cast ──> DivinationSession
+       │ SoundCue ──> AudioController / Speaker task
                               │
                               ▼
                          RandomProvider

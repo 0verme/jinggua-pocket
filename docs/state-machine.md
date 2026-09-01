@@ -25,7 +25,7 @@ WELCOME                    WIFI_FAILED        WIFI_TIMEOUT
                           WIFI_CONNECTING     WIFI_CONNECTING
 ```
 
-SETTINGS: PrimaryClick → 开始连接（WifiController::enable()），SecondaryClick → Welcome。
+SETTINGS: PrimaryClick → 开始连接（WifiController::enable()），SecondaryClick → Welcome，LongPress → 切换 runtime 声音开关。
 WIFI_CONNECTING: SecondaryClick → 取消连接（WifiController::disable()）→ SETTINGS。
 WIFI_CONNECTED: PrimaryClick → 关闭连接（WifiController::disable()）→ SETTINGS。
 WIFI_FAILED: PrimaryClick → 重试 → WIFI_CONNECTING，SecondaryClick → SETTINGS。
@@ -81,8 +81,19 @@ ShakeDetector 默认启用，使用加速度/角速度门限、释放门限、50
 采样；六爻完成后会重置检测器，因此后续摇动不会继续生成爻。Button 仍可在
 所有原有页面作为 fallback 使用。
 
+声音 cue 由 `AudioController` 端口发出：开始一轮播放 `Start`，前五爻播放
+`Cast`，第六爻用一次 `Complete` 替代 `Cast`；Wi-Fi 失败/超时进入错误态时
+播放一次 `Error`。动画期间输入被忽略，因此不会产生音频请求洪泛。
+
 ## 渲染约束
 
 状态机只维护 `dirty` 标记。输入导致状态或会话改变后，主循环渲染一次并
 acknowledge；渲染不会改变领域数组。UI 显示六爻时从 `index 5` 到 `index 0`
 遍历，领域顺序保持 `index 0 = 初爻`。
+
+Renderer 的每个 `AppState` 都有明确 screen path。`Casting` 显示当前爻序和
+三枚铜钱提示；`LineResult` 在 `CoinAnimation` active 时只等待，finished 后
+显示铜钱、阴/阳、静爻/动爻和下一步。无动爻时停留在本卦结果，不进入空的之卦
+screen。History 只呈现记录顺序、本卦、动爻和存在时的之卦；Wi-Fi 页面把
+Off/Connecting/Connected/Failed/Timeout 映射为 `未连接`、`正在连接…`、`已连接`
+和 `连接失败` 等产品文案，不泄露内部错误码。

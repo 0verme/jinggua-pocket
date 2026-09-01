@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(jinggua_native_tests
+  test_audio_feedback.cpp
   test_coin.cpp
   test_coin_animation.cpp
   test_divination_flow.cpp
@@ -24,6 +25,7 @@ add_executable(jinggua_native_tests
   test_state_machine.cpp
   test_wifi.cpp
   test_transform.cpp
+  test_ui_layout.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp
@@ -41,6 +43,7 @@ add_executable(jinggua_native_tests
   ../../src/domain/history_record.cpp
   ../../src/domain/trigram.cpp
   ../../src/domain/yao.cpp
+  ../../src/hardware/audio_feedback.cpp
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
   ../../src/hardware/font_data.cpp
