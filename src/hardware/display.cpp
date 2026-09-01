@@ -13,19 +13,53 @@ bool Display::begin() noexcept {
   auto config = M5.config();
   config.serial_baudrate = 115200;
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  // The research firmware owns the ES8311 input path and deliberately keeps
+  // the output path disabled; see docs/audio-feedback.md for the boundary.
   config.internal_mic = true;
+  config.internal_spk = false;
 #else
   config.internal_mic = false;
+  config.internal_spk = true;
 #endif
-  config.internal_spk = false;
   config.output_power = false;
   M5.begin(config);
   ready_ = true;
+  displayOff_ = false;
   fontReady_ = M5.Display.loadFont(kChineseFontData);
+  M5.Display.setBrightness(brightness_);
 #else
   ready_ = true;
+  displayOff_ = false;
 #endif
   return ready_;
+}
+
+void Display::setBrightness(std::uint8_t brightness) noexcept {
+  brightness_ = brightness;
+#if defined(ARDUINO)
+  if (ready_ && !displayOff_) {
+    M5.Display.setBrightness(brightness_);
+  }
+#endif
+}
+
+void Display::displayOff() noexcept {
+  displayOff_ = true;
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.sleep();
+  }
+#endif
+}
+
+void Display::displayWake() noexcept {
+  displayOff_ = false;
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.wakeup();
+    M5.Display.setBrightness(brightness_);
+  }
+#endif
 }
 
 void Display::clear(Color color) noexcept {
@@ -109,17 +143,17 @@ void Display::fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
 
 int Display::width() const noexcept {
 #if defined(ARDUINO)
-  return ready_ ? M5.Display.width() : 240;
+  return ready_ ? M5.Display.width() : 135;
 #else
-  return 240;
+  return 135;
 #endif
 }
 
 int Display::height() const noexcept {
 #if defined(ARDUINO)
-  return ready_ ? M5.Display.height() : 135;
+  return ready_ ? M5.Display.height() : 240;
 #else
-  return 135;
+  return 240;
 #endif
 }
 

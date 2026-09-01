@@ -7,6 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(jinggua_native_tests
+  test_audio_feedback.cpp
   test_coin.cpp
   test_coin_animation.cpp
   test_divination_flow.cpp
@@ -18,14 +19,19 @@ add_executable(jinggua_native_tests
   test_main.cpp
   test_microphone_research.cpp
   test_ordering.cpp
+  test_power_controller.cpp
+  test_power_manager.cpp
   test_ring_history_store.cpp
   test_state_machine.cpp
   test_wifi.cpp
   test_api.cpp
   test_transform.cpp
+  test_ui_layout.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp
+  ../../src/application/power_hardware.cpp
+  ../../src/application/power_manager.cpp
   ../../src/application/ring_history_store.cpp
   ../../src/application/state_machine.cpp
   ../../src/application/wifi_controller.cpp
@@ -38,9 +44,11 @@ add_executable(jinggua_native_tests
   ../../src/domain/history_record.cpp
   ../../src/domain/trigram.cpp
   ../../src/domain/yao.cpp
+  ../../src/hardware/audio_feedback.cpp
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
   ../../src/hardware/font_data.cpp
+  ../../src/hardware/power_controller.cpp
   ../../src/hardware/imu.cpp
   ../../src/hardware/microphone_research.cpp
   ../../src/hardware/random.cpp

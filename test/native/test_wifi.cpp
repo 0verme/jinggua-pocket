@@ -59,12 +59,14 @@ void runWifiTests(TestRunner& runner) {
     EXPECT_EQ(runner, stateMachine.state(), AppState::Settings);
     stateMachine.handleInput(InputEvent::PrimaryClick);  // Settings -> connect
     EXPECT_EQ(runner, stateMachine.state(), AppState::WifiConnecting);
+    EXPECT(runner, !stateMachine.sleepAllowed());
     EXPECT_EQ(runner, wifi.state(), WifiState::Connecting);
     EXPECT_EQ(runner, wifi.enableCount(), 1);
 
     wifi.setState(WifiState::Connected);
     stateMachine.update(1000);
     EXPECT_EQ(runner, stateMachine.state(), AppState::WifiConnected);
+    EXPECT(runner, !stateMachine.sleepAllowed());
     EXPECT_EQ(runner, wifi.state(), WifiState::Connected);
   }
 

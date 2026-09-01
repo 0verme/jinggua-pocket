@@ -2,6 +2,7 @@
 
 #include "test_framework.h"
 
+void runAudioFeedbackTests(TestRunner& runner);
 void runCoinTests(TestRunner& runner);
 void runCoinAnimationTests(TestRunner& runner);
 void runDivinationFlowTests(TestRunner& runner);
@@ -9,7 +10,10 @@ void runYaoTests(TestRunner& runner);
 void runHexagramTests(TestRunner& runner);
 void runImuTests(TestRunner& runner);
 void runMicrophoneResearchTests(TestRunner& runner);
+void runPowerControllerTests(TestRunner& runner);
+void runPowerManagerTests(TestRunner& runner);
 void runTransformTests(TestRunner& runner);
+void runUiLayoutTests(TestRunner& runner);
 void runOrderingTests(TestRunner& runner);
 void runStateMachineTests(TestRunner& runner);
 void runHistoryRecordTests(TestRunner& runner);
@@ -21,6 +25,7 @@ void runApiTests(TestRunner& runner);
 
 int main() {
   TestRunner runner;
+  runAudioFeedbackTests(runner);
   runCoinTests(runner);
   runCoinAnimationTests(runner);
   runDivinationFlowTests(runner);
@@ -28,7 +33,10 @@ int main() {
   runHexagramTests(runner);
   runImuTests(runner);
   runMicrophoneResearchTests(runner);
+  runPowerControllerTests(runner);
+  runPowerManagerTests(runner);
   runTransformTests(runner);
+  runUiLayoutTests(runner);
   runOrderingTests(runner);
   runStateMachineTests(runner);
   runHistoryRecordTests(runner);
