@@ -34,7 +34,7 @@ void StateMachine::begin() noexcept {
 }
 
 void StateMachine::handleInput(InputEvent event) noexcept {
-  if (event == InputEvent::None) {
+  if (event == InputEvent::None || lineAnimationActive_) {
     return;
   }
 
@@ -90,8 +90,17 @@ void StateMachine::handleInput(InputEvent event) noexcept {
   }
 }
 
+void StateMachine::finishLineAnimation() noexcept {
+  if (!lineAnimationActive_) {
+    return;
+  }
+  lineAnimationActive_ = false;
+  dirty_ = true;
+}
+
 void StateMachine::castLine() noexcept {
   if (session_.castLine()) {
+    lineAnimationActive_ = true;
     transitionTo(AppState::LineResult);
     // The state does not change when Shake advances from one result to the
     // next, but the renderer still needs to show the new line.

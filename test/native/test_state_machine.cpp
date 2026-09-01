@@ -32,7 +32,17 @@ void runStateMachineTests(TestRunner& runner) {
     stateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
     EXPECT_EQ(runner, stateMachine.state(),
               jinggua::application::AppState::LineResult);
+    EXPECT(runner, stateMachine.isLineAnimationActive());
     EXPECT_EQ(runner, session.lineCount(), index + 1);
+
+    // Input arriving during the presentation cannot create or acknowledge a
+    // second line.
+    stateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
+    EXPECT_EQ(runner, session.lineCount(), index + 1);
+    EXPECT(runner, stateMachine.isLineAnimationActive());
+
+    stateMachine.finishLineAnimation();
+    EXPECT(runner, !stateMachine.isLineAnimationActive());
     stateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
     if (index < 5) {
       EXPECT_EQ(runner, stateMachine.state(),
@@ -78,6 +88,12 @@ void runStateMachineTests(TestRunner& runner) {
     EXPECT_EQ(runner, shakeSession.lineCount(), index + 1);
     EXPECT_EQ(runner, shakeStateMachine.state(),
               jinggua::application::AppState::LineResult);
+    EXPECT(runner, shakeStateMachine.isLineAnimationActive());
+
+    shakeStateMachine.handleInput(jinggua::application::InputEvent::Shake);
+    EXPECT_EQ(runner, shakeSession.lineCount(), index + 1);
+    shakeStateMachine.finishLineAnimation();
+    EXPECT(runner, !shakeStateMachine.isLineAnimationActive());
   }
   EXPECT(runner, shakeSession.isComplete());
   EXPECT_EQ(runner, shakeRandom.consumed(), static_cast<std::size_t>(18));

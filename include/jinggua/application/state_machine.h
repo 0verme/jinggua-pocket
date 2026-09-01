@@ -24,8 +24,10 @@ class StateMachine final {
 
   void begin() noexcept;
   void handleInput(InputEvent event) noexcept;
+  void finishLineAnimation() noexcept;
 
   AppState state() const noexcept { return state_; }
+  bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   const DivinationSession& session() const noexcept { return session_; }
   bool isDirty() const noexcept { return dirty_; }
   void acknowledgeRender() noexcept { dirty_ = false; }
@@ -38,6 +40,7 @@ class StateMachine final {
   DivinationSession& session_;
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
+  bool lineAnimationActive_{false};
   bool dirty_{true};
 };
 

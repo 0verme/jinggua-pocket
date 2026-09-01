@@ -77,6 +77,36 @@ void Display::drawLine(int x0, int y0, int x1, int y1,
 #endif
 }
 
+void Display::drawEllipse(int centerX, int centerY, int radiusX, int radiusY,
+                          Color color) noexcept {
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.drawEllipse(centerX, centerY, radiusX, radiusY, color);
+  }
+#else
+  (void)centerX;
+  (void)centerY;
+  (void)radiusX;
+  (void)radiusY;
+  (void)color;
+#endif
+}
+
+void Display::fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
+                          Color color) noexcept {
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.fillEllipse(centerX, centerY, radiusX, radiusY, color);
+  }
+#else
+  (void)centerX;
+  (void)centerY;
+  (void)radiusX;
+  (void)radiusY;
+  (void)color;
+#endif
+}
+
 int Display::width() const noexcept {
 #if defined(ARDUINO)
   return ready_ ? M5.Display.width() : 240;
