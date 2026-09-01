@@ -27,6 +27,10 @@ another divination firmware.
   从设置页显式触发才连接；连接异步非阻塞、15 秒超时、失败/超时不自动
   重连。当前只完成连接流程，不包含 JingGua API、设备绑定、二维码或 OTA。
   凭据通过构建期环境变量注入，不提交到仓库（见下文「Wi-Fi 开发配置」）。
+- **声音反馈已实现（Issue #3）**：使用短合成 tone 提供 Start、Cast、Complete
+  和 Error 确认；固定单 channel、非阻塞、队列满时丢弃，Settings 长按可
+  runtime mute。默认固件启用 Speaker，麦克风 research environment 保持
+  Speaker 关闭。
 - 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
   该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
   [`docs/microphone-research.md`](docs/microphone-research.md)。
@@ -45,6 +49,7 @@ another divination firmware.
 | Display driver | M5Unified / M5GFX，StickS3 内置 ST7789P3 |
 | IMU | BMI270，通过 M5Unified `IMU_Class` |
 | Button API | M5Unified `M5.BtnA` / `M5.BtnB` |
+| Audio | M5Unified `M5.Speaker` / ES8311 I2S TX（普通固件） |
 
 PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录在
 [`docs/hardware.md`](docs/hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。
@@ -103,6 +108,7 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/divination-model.md`](docs/divination-model.md)
 - [`docs/state-machine.md`](docs/state-machine.md)
 - [`docs/coin-animation.md`](docs/coin-animation.md)
+- [`docs/audio-feedback.md`](docs/audio-feedback.md)
 
 ## Development
 

@@ -208,7 +208,8 @@ void renderResetConfirm(hardware::Display& display) noexcept {
 }
 
 void renderWifiSettings(hardware::Display& display,
-                        const application::WifiController& wifi) noexcept {
+                        const application::WifiController& wifi,
+                        bool soundEnabled) noexcept {
   clearScreen(display);
   drawTitle(display, "Wi-Fi");
   const char* status = nullptr;
@@ -231,7 +232,9 @@ void renderWifiSettings(hardware::Display& display,
   } else if (!wifi.configured()) {
     display.drawText("未配置网络", kMargin, 62, kMuted, typography::kBody);
   }
-  drawFooter(display, "A 连接 · B 返回");
+  display.drawText(soundEnabled ? "声音：开" : "声音：关", kMargin, 86, kCopper,
+                   typography::kBody);
+  drawFooter(display, "A 连接 · 长按声音 · B 返回");
 }
 
 void renderWifiConnecting(hardware::Display& display) noexcept {

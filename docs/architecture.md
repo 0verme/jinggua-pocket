@@ -19,8 +19,8 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 └──────────────────────────────────────┘
              ▲                 ▲
              │ ports           │ adapters
-   RandomProvider       StickS3 Display/Buttons/IMU
-  WifiController                Esp32WifiManager
+   RandomProvider       StickS3 Display/Buttons/IMU/Audio
+  WifiController                Esp32WifiManager / StickS3AudioController
 ```
 
 ### Domain
@@ -47,6 +47,10 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
   只有用户显式触发才 `WiFi.begin()`；连接由主循环 `update(nowMs)` 非阻塞
   推进，15 秒超时，失败/超时后不自动重连。凭据只通过构建期环境变量
   注入，不提交到仓库。
+- `StickS3AudioController` 实现 `AudioController` 接口：应用层只发出
+  `SoundCue`，硬件层使用 M5Unified 的异步 ES8311 Speaker 路径，不把
+  `M5.Speaker` 泄漏到状态机。普通固件启用 Speaker，麦克风 research
+  environment 明确关闭 Speaker；详见 [`audio-feedback.md`](audio-feedback.md)。
 
 ### UI
 
@@ -70,7 +74,8 @@ M5.BtnA / M5.BtnB
 InputEvent::PrimaryClick
         │
         ▼
-StateMachine ── cast ──> DivinationSession
+  StateMachine ── cast ──> DivinationSession
+       │ SoundCue ──> AudioController / Speaker task
                               │
                               ▼
                          RandomProvider
