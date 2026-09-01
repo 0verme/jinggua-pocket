@@ -17,6 +17,9 @@ All notable changes to `jinggua-pocket` are recorded here.
   off by default; only the user can trigger a connection from the Settings page.
   States: Off → Connecting → Connected / Failed / Timeout.  No auto-retry.
   Credentials injected via environment variables, never committed.
+- **Automatic power management (Issue #5):** host-testable `PowerManager`,
+  Active → Dim → Display Off → Light Sleep → Wake path, StickS3 Button wake
+  adapter and post-wake button suppression. Real-device validation is pending.
 
 ### Changed
 
@@ -28,3 +31,5 @@ All notable changes to `jinggua-pocket` are recorded here.
   release/debounce, and cooldown protection.
 - A sequence of six Shake events now completes six lines; Button casting
   remains available and shares the same session cast path.
+- Display Off reduces IMU polling; Light Sleep stops ordinary IMU polling and
+  defers IMU motion wake until a separately verified hardware implementation.

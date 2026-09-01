@@ -55,6 +55,10 @@ class StateMachine final {
 
   AppState state() const noexcept { return state_; }
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
+  // Automatic DisplayOff/LightSleep is blocked during animation, reset
+  // confirmation and active Wi-Fi work. This keeps lifecycle policy explicit
+  // without making PowerManager depend on AppState.
+  bool sleepAllowed() const noexcept;
   const DivinationSession& session() const noexcept { return session_; }
   const WifiController& wifi() const noexcept { return *wifi_; }
   bool isDirty() const noexcept { return dirty_; }

@@ -27,6 +27,9 @@ another divination firmware.
   从设置页显式触发才连接；连接异步非阻塞、15 秒超时、失败/超时不自动
   重连。当前只完成连接流程，不包含 JingGua API、设备绑定、二维码或 OTA。
   凭据通过构建期环境变量注入，不提交到仓库（见下文「Wi-Fi 开发配置」）。
+- **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
+  → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
+  接入；真实电流、唤醒稳定性和续航仍为 `PENDING DEVICE VALIDATION`。
 - **声音反馈已实现（Issue #3）**：使用短合成 tone 提供 Start、Cast、Complete
   和 Error 确认；固定单 channel、非阻塞、队列满时丢弃，Settings 长按可
   runtime mute。默认固件启用 Speaker，麦克风 research environment 保持
@@ -97,7 +100,10 @@ data (8 trigrams + 64 hexagrams)
 
 - `domain/` 只依赖 C++ 标准库，不依赖屏幕、按钮、M5Stack SDK 或 Arduino。
 - `application/` 通过 `RandomProvider` 接口取得铜钱输入，并管理六次起卦。
-- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU 和显示适配。
+- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU、显示、电源和音频适配。
+- `PowerManager` 是可在主机测试的 inactivity 状态逻辑；
+  `StickS3PowerController` 将其映射到 Display brightness、Display Off 和
+  ESP32-S3 light sleep。
 - `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算；
   `ui/layout.h`、`ui/theme.h`、`ui/typography.h` 统一小屏布局、颜色和字号。
 - `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
@@ -109,6 +115,7 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/divination-model.md`](docs/divination-model.md)
 - [`docs/state-machine.md`](docs/state-machine.md)
+- [`docs/power-management.md`](docs/power-management.md)
 - [`docs/coin-animation.md`](docs/coin-animation.md)
 - [`docs/audio-feedback.md`](docs/audio-feedback.md)
 - [`docs/ui-guidelines.md`](docs/ui-guidelines.md)
@@ -125,9 +132,10 @@ cmake --build build/native
 ctest --test-dir build/native --output-on-failure
 ```
 
-测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序
-以及完整状态流。Host tests 使用 deterministic `RandomProvider`，不会调用
-Arduino `random()`。
+测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序、
+完整状态流以及 PowerManager 的 inactivity threshold、活动唤醒、sleep
+inhibition 和 `millis()` wrap-around。Host tests 使用 deterministic
+`RandomProvider`，不会调用 Arduino `random()`。
 
 字体子集完整性检查：
 

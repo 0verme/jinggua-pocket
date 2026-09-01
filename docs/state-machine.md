@@ -39,6 +39,29 @@ WIFI_TIMEOUT: PrimaryClick → 重试 → WIFI_CONNECTING，SecondaryClick → S
 
 Shake 在 Wi-Fi 页面不产生效果；Wi-Fi 连接状态不影响起卦流程。
 
+## 电源状态（Issue #5）
+
+电源状态与 `AppState` 正交，由 `PowerManager` 独立推进：
+
+```text
+Active ──30s idle──> Dim ──60s idle──> Display Off ──300s idle──> Light Sleep
+   ▲                         ▲                                      │
+   └──────────── Button / Shake / Wake activity ────────────────────┘
+```
+
+- `Active` 使用正常亮度，`Dim` 只降低亮度；
+- `Display Off` 关闭显示输出但 MCU 仍运行，IMU 降频轮询；
+- `Light Sleep` 停止普通 IMU polling，硬件 adapter 等待 BtnA/BtnB wake；
+- `StateMachine::sleepAllowed()` 在 coin animation、`ResetConfirm`、
+  `WifiConnecting` 和 `WifiConnected` 期间返回 false，PowerManager 保持
+  `Active`；
+- 唤醒只恢复显示和 inactivity timer，不改变 session、History 或当前
+  `AppState`。
+
+以下行为算作 PowerManager activity：有效按键、有效 Shake、开始一爻、reset、
+进入/离开设置、History 浏览、主动 Wi-Fi 操作和 wake。普通 IMU sample 不算
+activity。
+
 ## 输入事件
 
 | Event | 来源 | v0.1 用途 | v0.2 新增用途 |
@@ -48,6 +71,10 @@ Shake 在 Wi-Fi 页面不产生效果；Wi-Fi 连接状态不影响起卦流程�
 | `LongPress` | M5Unified hold | 确认重新起卦 | — |
 | `Shake` | `ShakeDetector` | Casting 状态起一爻；未完成时在 LineResult 直接进入下一爻 | — |
 | `None` | 无输入 | 不改变状态 | — |
+
+电源逻辑不把 `setBrightness(0)` 视为 Light Sleep：Display Off 使用显示适配器
+的 sleep/wakeup，Light Sleep 另外调用 ESP32-S3 light-sleep API。Button wake
+后的按住/点击事件会被丢弃，避免唤醒动作重复推进 App。
 
 ShakeDetector 默认启用，使用加速度/角速度门限、释放门限、500 ms 检测窗口、
 80 ms 最小峰间隔和 1200 ms cooldown。只在 Casting 或未完成的 LineResult

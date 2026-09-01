@@ -18,12 +18,28 @@ void StickS3Buttons::begin() noexcept {
 #else
   // M5Unified initializes the StickS3 buttons together with the display.
 #endif
+  ignoreUntilReleased_ = false;
+}
+
+void StickS3Buttons::ignoreUntilReleased() noexcept {
+#if defined(ARDUINO)
+  ignoreUntilReleased_ = true;
+#endif
 }
 
 application::InputEvent StickS3Buttons::poll() noexcept {
 #if defined(ARDUINO)
   // M5Unified requires M5.update() once per loop to advance button state.
   M5.update();
+  if (ignoreUntilReleased_) {
+    const bool allReleased = M5.BtnA.isReleased() && M5.BtnB.isReleased();
+    if (allReleased) {
+      ignoreUntilReleased_ = false;
+    }
+    // Do not consume the wake press as a click or hold. Returning here also
+    // drops a click state that M5Unified may have queued during the wake.
+    return application::InputEvent::None;
+  }
   if (M5.BtnA.wasHold()) {
     Serial.println("[Input] BtnA hold -> LongPress");
     return application::InputEvent::LongPress;

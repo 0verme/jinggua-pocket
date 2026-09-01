@@ -12,6 +12,7 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 │ UI: Renderer / Screens                │  只绘制，不计算卦
 ├──────────────────────────────────────┤
 │ Application: StateMachine / Session  │  编排事件与一次起卦会话
+│              PowerManager             │  管理 inactivity 与电源状态
 ├──────────────────────────────────────┤
 │ Domain: Coin / Yao / Trigram / ...   │  纯 C++，可独立测试
 ├──────────────────────────────────────┤
@@ -19,8 +20,9 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 └──────────────────────────────────────┘
              ▲                 ▲
              │ ports           │ adapters
-   RandomProvider       StickS3 Display/Buttons/IMU/Audio
-  WifiController                Esp32WifiManager / StickS3AudioController
+   RandomProvider       StickS3 Display/Buttons/IMU/Power/Audio
+  WifiController        PowerHardware / Esp32WifiManager
+  AudioController       StickS3AudioController
 ```
 
 ### Domain
@@ -35,6 +37,11 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 3 枚铜钱，并把结果放入 `index 0..5 = 初爻..上爻`。`StateMachine` 只处理
 `InputEvent`，因此按钮、IMU、未来的 BLE/Serial 都能被替换而不改变状态逻辑。
 
+`PowerManager` 只维护 inactivity epoch、`PowerState`、亮度 profile、IMU
+polling profile 和 light-sleep request；它不依赖 Arduino、M5Unified 或
+`AppState`。所有 PowerPolicy timeout 都集中在同一个 value object，测试使用
+无符号 elapsed arithmetic 覆盖 `millis()` wrap-around。
+
 ### Hardware
 
 `hardware/` 是 StickS3 的边界：
@@ -43,6 +50,11 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 - `StickS3Buttons` 将 M5Unified `BtnA/BtnB` 映射到 `InputEvent`。
 - `StickS3Imu` 将 M5Unified `IMU_Class` 数据转换为平台无关的 `ImuSample`。
 - `ShakeDetector` 只处理样本、窗口和 cooldown，不知道应用状态。
+- `Display` 暴露 brightness、Display Off 和 wake，而不是让 application 直接
+  调用 M5GFX。
+- `StickS3PowerController` 实现 `PowerHardware`：将 PowerState 映射到
+  `M5.Display.setBrightness()` / `M5.Display.sleep()` / `wakeup()`，并在
+  ESP32-S3 上配置 GPIO11/GPIO12 Button wake 后调用 `esp_light_sleep_start()`。
 - `Esp32WifiManager` 实现 `WifiController` 接口：默认 Off（离线优先），
   只有用户显式触发才 `WiFi.begin()`；连接由主循环 `update(nowMs)` 非阻塞
   推进，15 秒超时，失败/超时后不自动重连。凭据只通过构建期环境变量
@@ -51,6 +63,20 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
   `SoundCue`，硬件层使用 M5Unified 的异步 ES8311 Speaker 路径，不把
   `M5.Speaker` 泄漏到状态机。普通固件启用 Speaker，麦克风 research
   environment 明确关闭 Speaker；详见 [`audio-feedback.md`](audio-feedback.md)。
+
+## Power management（Issue #5）
+
+PowerState 是与 AppState 正交的生命周期状态：
+
+```text
+Active → Dim → Display Off → Light Sleep → Wake → Active
+```
+
+主循环先交付 Button/Shake activity，再调用 `PowerManager::update()`；因此
+阈值附近的用户动作不会被自动息屏抢先消费。`StateMachine::sleepAllowed()`
+在 coin animation、reset confirmation 和 active Wi-Fi window 返回 false，
+PowerManager 在这些窗口保持 Active。唤醒不重新执行 setup，不重建 session 或
+history，只恢复显示、重置计时并强制渲染当前 AppState。
 
 ### UI
 

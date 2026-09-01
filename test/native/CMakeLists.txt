@@ -19,6 +19,8 @@ add_executable(jinggua_native_tests
   test_main.cpp
   test_microphone_research.cpp
   test_ordering.cpp
+  test_power_controller.cpp
+  test_power_manager.cpp
   test_ring_history_store.cpp
   test_state_machine.cpp
   test_wifi.cpp
@@ -27,6 +29,8 @@ add_executable(jinggua_native_tests
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp
+  ../../src/application/power_hardware.cpp
+  ../../src/application/power_manager.cpp
   ../../src/application/ring_history_store.cpp
   ../../src/application/state_machine.cpp
   ../../src/application/wifi_controller.cpp
@@ -43,6 +47,7 @@ add_executable(jinggua_native_tests
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
   ../../src/hardware/font_data.cpp
+  ../../src/hardware/power_controller.cpp
   ../../src/hardware/imu.cpp
   ../../src/hardware/microphone_research.cpp
   ../../src/hardware/random.cpp

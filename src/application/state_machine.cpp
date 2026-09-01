@@ -191,6 +191,21 @@ void StateMachine::handleInput(InputEvent event) noexcept {
   }
 }
 
+bool StateMachine::sleepAllowed() const noexcept {
+  if (lineAnimationActive_) {
+    return false;
+  }
+
+  switch (state_) {
+    case AppState::ResetConfirm:
+    case AppState::WifiConnecting:
+    case AppState::WifiConnected:
+      return false;
+    default:
+      return true;
+  }
+}
+
 void StateMachine::update(std::uint32_t nowMs) noexcept {
   if (wifi_ == nullptr || state_ != AppState::WifiConnecting) {
     return;
