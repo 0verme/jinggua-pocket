@@ -353,7 +353,8 @@ void renderResetConfirm(hardware::Display& display) noexcept {
 }
 
 void renderWifiSettings(hardware::Display& display,
-                        const application::WifiController& wifi) noexcept {
+                        const application::WifiController& wifi,
+                        bool soundEnabled) noexcept {
   clearScreen(display);
   drawTitle(display, "Wi-Fi");
   const bool connected = wifi.state() == application::WifiState::Connected;
@@ -362,7 +363,10 @@ void renderWifiSettings(hardware::Display& display,
   if (connected) {
     drawSsid(display, wifi);
   }
-  drawFooter(display, "A 连接  B 返回");
+  display.drawText(soundEnabled ? "声音：开" : "声音：关", margin(display),
+                   layout::kWifiSsidY + 32, theme::kAccent,
+                   typography::kSecondary);
+  drawFooter(display, "A 连接  B 返回", "长按：声音开关");
 }
 
 void renderWifiConnecting(hardware::Display& display) noexcept {

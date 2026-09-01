@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdint>
 
+#include "jinggua/application/audio_controller.h"
 #include "jinggua/application/divination_session.h"
 #include "jinggua/application/history_store.h"
 #include "jinggua/application/input_event.h"
@@ -46,11 +47,18 @@ class StateMachine final {
   void finishLineAnimation() noexcept;
   void update(std::uint32_t nowMs) noexcept;
 
+  // Audio is optional so native/application tests and future headless builds
+  // do not need a hardware implementation.
+  void setAudioController(AudioController& audio) noexcept;
+  void setSoundEnabled(bool enabled) noexcept;
+  void toggleSoundEnabled() noexcept { setSoundEnabled(!soundEnabled_); }
+
   AppState state() const noexcept { return state_; }
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   const DivinationSession& session() const noexcept { return session_; }
   const WifiController& wifi() const noexcept { return *wifi_; }
   bool isDirty() const noexcept { return dirty_; }
+  bool soundEnabled() const noexcept { return soundEnabled_; }
   void acknowledgeRender() noexcept { dirty_ = false; }
 
   // ── History ────────────────────────────────────────────────────────
@@ -60,6 +68,7 @@ class StateMachine final {
  private:
   void transitionTo(AppState next) noexcept;
   void castLine() noexcept;
+  void playSound(SoundCue cue) noexcept;
   void handleResultAction() noexcept;
 
   // Move the history browser cursor by a signed offset, clamped to the
@@ -72,10 +81,12 @@ class StateMachine final {
   DivinationSession& session_;
   HistoryStore* history_{nullptr};
   WifiController* wifi_{nullptr};
+  AudioController* audio_{nullptr};
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
   bool lineAnimationActive_{false};
   std::size_t historyCursor_{0};
+  bool soundEnabled_{true};
   bool dirty_{true};
 };
 

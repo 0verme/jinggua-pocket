@@ -24,7 +24,8 @@ void renderTransformedResult(
     const application::DivinationSession& session) noexcept;
 void renderResetConfirm(hardware::Display& display) noexcept;
 void renderWifiSettings(hardware::Display& display,
-                        const application::WifiController& wifi) noexcept;
+                        const application::WifiController& wifi,
+                        bool soundEnabled) noexcept;
 void renderWifiConnecting(hardware::Display& display) noexcept;
 void renderWifiConnected(hardware::Display& display,
                          const application::WifiController& wifi) noexcept;

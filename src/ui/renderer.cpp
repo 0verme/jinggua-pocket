@@ -66,7 +66,8 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
       renderHistory(display_, stateMachine);
       break;
     case application::AppState::Settings:
-      renderWifiSettings(display_, stateMachine.wifi());
+      renderWifiSettings(display_, stateMachine.wifi(),
+                        stateMachine.soundEnabled());
       break;
     case application::AppState::WifiConnecting:
       renderWifiConnecting(display_);

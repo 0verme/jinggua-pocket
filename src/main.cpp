@@ -6,6 +6,7 @@
 #include "jinggua/application/divination_session.h"
 #include "jinggua/application/ring_history_store.h"
 #include "jinggua/application/state_machine.h"
+#include "jinggua/hardware/audio_feedback.h"
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/hardware/imu.h"
@@ -28,6 +29,7 @@ jinggua::hardware::PreferencesSlotStorage slotStorage;
 jinggua::application::RingHistoryStore historyStore(slotStorage);
 jinggua::application::DivinationSession session(randomProvider);
 jinggua::hardware::Esp32WifiManager wifiManager;
+jinggua::hardware::StickS3AudioController audioController;
 jinggua::application::StateMachine stateMachine(session, wifiManager,
                                                  &historyStore);
 jinggua::ui::Renderer renderer(display);
@@ -264,6 +266,17 @@ void setup() {
   Serial.print(display.width());
   Serial.print("x");
   Serial.println(display.height());
+
+  const bool audioReady = audioController.begin();
+  stateMachine.setAudioController(audioController);
+  Serial.print("[Audio] speaker ");
+#if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
+  Serial.println(audioReady ? "configured but disabled in mic research"
+                             : "disabled in mic research");
+#else
+  Serial.println(audioReady ? "configured (lazy, non-blocking playback)"
+                            : "unavailable");
+#endif
 
   buttons.begin();
   Serial.println("[Button] init OK");
