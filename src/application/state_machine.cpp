@@ -27,6 +27,16 @@ const char* appStateName(AppState state) noexcept {
       return "RESET_CONFIRM";
     case AppState::History:
       return "HISTORY";
+    case AppState::Settings:
+      return "SETTINGS";
+    case AppState::WifiConnecting:
+      return "WIFI_CONNECTING";
+    case AppState::WifiConnected:
+      return "WIFI_CONNECTED";
+    case AppState::WifiFailed:
+      return "WIFI_FAILED";
+    case AppState::WifiTimeout:
+      return "WIFI_TIMEOUT";
   }
   return "UNKNOWN";
 }
@@ -34,6 +44,10 @@ const char* appStateName(AppState state) noexcept {
 StateMachine::StateMachine(DivinationSession& session,
                            HistoryStore* history) noexcept
     : session_(session), history_(history) {}
+
+StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
+                           HistoryStore* history) noexcept
+    : session_(session), history_(history), wifi_(&wifi) {}
 
 void StateMachine::begin() noexcept {
   if (state_ == AppState::Boot) {
@@ -54,6 +68,10 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       if (event == InputEvent::PrimaryClick) {
         transitionTo(AppState::Prepare);
       } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(wifi_ != nullptr ? AppState::Settings : AppState::History);
+      } else if (event == InputEvent::LongPress) {
+        // Keep the Wi-Fi shortcut on B while exposing history on the long
+        // press path when both optional features are available.
         transitionTo(AppState::History);
       }
       break;
@@ -99,12 +117,74 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       break;
     case AppState::History:
       if (event == InputEvent::PrimaryClick) {
-        moveHistoryCursor(-1);  // A = 更早 (older)
+        moveHistoryCursor(-1);  // A = older
       } else if (event == InputEvent::SecondaryClick) {
-        moveHistoryCursor(1);  // B = 更新 (newer)
+        moveHistoryCursor(1);  // B = newer
       } else if (event == InputEvent::LongPress) {
         transitionTo(AppState::Welcome);
       }
+      break;
+    case AppState::Settings:
+      if (event == InputEvent::PrimaryClick) {
+        // Only the user can trigger a connection. If no credentials are
+        // configured the controller refuses and we show a failure screen.
+        if (wifi_->enable()) {
+          transitionTo(AppState::WifiConnecting);
+        } else {
+          transitionTo(AppState::WifiFailed);
+        }
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
+    case AppState::WifiConnecting:
+      if (event == InputEvent::SecondaryClick) {
+        wifi_->disable();
+        transitionTo(AppState::Settings);
+      }
+      break;
+    case AppState::WifiConnected:
+      if (event == InputEvent::PrimaryClick) {
+        wifi_->disable();
+        transitionTo(AppState::Settings);
+      }
+      break;
+    case AppState::WifiFailed:
+      if (event == InputEvent::PrimaryClick) {
+        if (wifi_->enable()) {
+          transitionTo(AppState::WifiConnecting);
+        }
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Settings);
+      }
+      break;
+    case AppState::WifiTimeout:
+      if (event == InputEvent::PrimaryClick) {
+        if (wifi_->enable()) {
+          transitionTo(AppState::WifiConnecting);
+        }
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Settings);
+      }
+      break;
+  }
+}
+
+void StateMachine::update(std::uint32_t nowMs) noexcept {
+  if (wifi_ == nullptr || state_ != AppState::WifiConnecting) {
+    return;
+  }
+  switch (wifi_->update(nowMs)) {
+    case WifiState::Connected:
+      transitionTo(AppState::WifiConnected);
+      break;
+    case WifiState::Failed:
+      transitionTo(AppState::WifiFailed);
+      break;
+    case WifiState::Timeout:
+      transitionTo(AppState::WifiTimeout);
+      break;
+    default:
       break;
   }
 }

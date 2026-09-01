@@ -9,6 +9,7 @@
 #include "jinggua/hardware/microphone_research.h"
 #include "jinggua/hardware/preferences_slot_storage.h"
 #include "jinggua/hardware/random.h"
+#include "jinggua/hardware/wifi_manager.h"
 #include "jinggua/ui/renderer.h"
 
 namespace {
@@ -23,7 +24,9 @@ jinggua::hardware::Esp32RandomProvider randomProvider;
 jinggua::hardware::PreferencesSlotStorage slotStorage;
 jinggua::application::RingHistoryStore historyStore(slotStorage);
 jinggua::application::DivinationSession session(randomProvider);
-jinggua::application::StateMachine stateMachine(session, &historyStore);
+jinggua::hardware::Esp32WifiManager wifiManager;
+jinggua::application::StateMachine stateMachine(session, wifiManager,
+                                                 &historyStore);
 jinggua::ui::Renderer renderer(display);
 
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
@@ -167,6 +170,7 @@ void loop() {
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   pollMicResearchCommand();
 #endif
+  stateMachine.update(millis());
   const auto previousState = stateMachine.state();
   const auto previousLineCount = stateMachine.session().lineCount();
   auto event = buttons.poll();

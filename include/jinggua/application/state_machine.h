@@ -1,8 +1,12 @@
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 #include "jinggua/application/divination_session.h"
 #include "jinggua/application/history_store.h"
 #include "jinggua/application/input_event.h"
+#include "jinggua/application/wifi_controller.h"
 
 namespace jinggua::application {
 
@@ -16,6 +20,11 @@ enum class AppState {
   TransformedResult,
   ResetConfirm,
   History,
+  Settings,
+  WifiConnecting,
+  WifiConnected,
+  WifiFailed,
+  WifiTimeout,
 };
 
 const char* appStateName(AppState state) noexcept;
@@ -29,11 +38,16 @@ class StateMachine final {
   explicit StateMachine(DivinationSession& session,
                         HistoryStore* history = nullptr) noexcept;
 
+  StateMachine(DivinationSession& session, WifiController& wifi,
+               HistoryStore* history = nullptr) noexcept;
+
   void begin() noexcept;
   void handleInput(InputEvent event) noexcept;
+  void update(std::uint32_t nowMs) noexcept;
 
   AppState state() const noexcept { return state_; }
   const DivinationSession& session() const noexcept { return session_; }
+  const WifiController& wifi() const noexcept { return *wifi_; }
   bool isDirty() const noexcept { return dirty_; }
   void acknowledgeRender() noexcept { dirty_ = false; }
 
@@ -54,7 +68,8 @@ class StateMachine final {
   void persistIfComplete() noexcept;
 
   DivinationSession& session_;
-  HistoryStore* history_;
+  HistoryStore* history_{nullptr};
+  WifiController* wifi_{nullptr};
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
   std::size_t historyCursor_{0};

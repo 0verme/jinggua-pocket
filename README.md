@@ -23,12 +23,16 @@ another divination firmware.
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
   峰间隔与 cooldown；Button 仍可作为 fallback。
+- **Wi-Fi 流程已实现（Issue #7，离线优先）**：设备默认关闭射频，只有用户
+  从设置页显式触发才连接；连接异步非阻塞、15 秒超时、失败/超时不自动
+  重连。当前只完成连接流程，不包含 JingGua API、设备绑定、二维码或 OTA。
+  凭据通过构建期环境变量注入，不提交到仓库（见下文「Wi-Fi 开发配置」）。
 - 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
   该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
   [`docs/microphone-research.md`](docs/microphone-research.md)。
 - UI 是低饱和、黑底、米白与铜色的基础骨架，使用 Noto Sans SC Medium
   的 12 px 中文子集，暂不包含复杂动画或完整《周易》文本。
-- v0.1 完全离线：没有 Wi-Fi、Analytics、遥测、设备指纹或第三方埋点。
+- v0.2 完全离线运行起卦，Wi-Fi 只在用户明确动作后开启。
 
 ## Hardware
 
@@ -67,8 +71,8 @@ PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录�
 
 ### 明确不在本阶段
 
-AI 解卦、完整经文、Wi-Fi/API、OAuth、数据库、BLE、OTA、二维码、语音、
-自定义 PCB、外壳和多硬件兼容都不在 Phase 0 scope 内。
+AI 解卦、完整经文、**Wi-Fi API 交互（连接流程已实现）**、OAuth、数据库、BLE、OTA、
+二维码、语音、自定义 PCB、外壳和多硬件兼容都不在 Phase 0 scope 内。
 
 ## Architecture
 
@@ -134,6 +138,27 @@ pio device monitor -b 115200
 工程只有一个硬件 environment；native tests 使用独立 CMake harness，避免
 为了主机测试伪造一个额外的硬件兼容 environment。
 
+### Wi-Fi 开发配置
+
+固件默认不定义任何 Wi-Fi 凭据；未配置时设置页点「连接」会提示「未配置
+Wi-Fi」，固件仍可编译、刷机与离线起卦。需要真机验证 Wi-Fi 时，在构建前
+设置环境变量（不要写进仓库）：
+
+```bash
+# macOS / Linux
+JINGGUA_WIFI_SSID="你的SSID" JINGGUA_WIFI_PASSWORD="你的密码" pio run -e m5stack-sticks3
+
+# Windows (PowerShell)
+$env:JINGGUA_WIFI_SSID="你的SSID"
+$env:JINGGUA_WIFI_PASSWORD="你的密码"
+pio run -e m5stack-sticks3
+```
+
+`tools/wifi_credentials.py` 会把这些值以 C 字符串字面量注入 `build_flags`；
+`.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
+credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
+详见 [`docs/hardware.md`](docs/hardware.md) 的「Wi-Fi Provisioning TODO」。
+
 ## Roadmap
 
 详见 [`docs/roadmap.md`](docs/roadmap.md)。
@@ -152,7 +177,9 @@ pio device monitor -b 115200
 ## Privacy and disclaimer
 
 v0.1 是离线工具，不上传用户所问之事，不做遥测、Analytics、设备指纹或
-自动联网。未来联网能力必须由用户明确动作触发。
+自动联网。v0.2 新增 Wi-Fi 连接流程，但**设备默认不联网**：射频在开机时
+处于关闭状态，只有用户从设置页按 A 显式触发后才开始连接；连接成功后也不
+做自动数据上报。未来联网能力必须由用户明确动作触发。
 
 本项目是文化与自我反思用途的工具，不替代医疗、法律、财务或其他专业
 判断。卦象算法和显示顺序会在测试与真机 Bring-up 中持续校验。
