@@ -22,6 +22,7 @@ add_executable(jinggua_native_tests
   test_state_machine.cpp
   test_wifi.cpp
   test_transform.cpp
+  test_ui_layout.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp

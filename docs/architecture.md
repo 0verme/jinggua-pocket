@@ -53,6 +53,18 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 `Renderer` 根据 `AppState` 选择 screen；六爻绘制时故意按 `5 -> 0` 显示，
 所以屏幕上上爻在最上方、初爻在最下方，而不修改领域数组。
 
+Pocket UI 是针对 135×240 portrait 的独立信息层，不把网页缩放到设备上：
+
+- `include/jinggua/ui/layout.h` 集中管理 margin、safe area、页眉/页脚、铜钱
+  间距、六爻线宽和行距，并提供纯布局校验 helper。
+- `include/jinggua/ui/typography.h` 只提供语义字号与行高；页面不写私有的
+  `setTextSize` 数字。
+- `include/jinggua/ui/theme.h` 集中管理背景、正文、强调色和辅助色。
+- 每个页面遵守“一屏一个主要动作”，结果只展示本卦、动爻和之卦；完整解卦
+  文本留给未来手机端。
+- `CoinAnimation` 仍由 `Renderer` 管理，动画期间输入由 `StateMachine` 屏蔽，
+  screen 只负责标题、等待提示和动画结束后的结果层级。
+
 ## 依赖规则
 
 1. Domain 不依赖 Hardware/UI。

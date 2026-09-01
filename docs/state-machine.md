@@ -59,3 +59,10 @@ ShakeDetector 默认启用，使用加速度/角速度门限、释放门限、50
 状态机只维护 `dirty` 标记。输入导致状态或会话改变后，主循环渲染一次并
 acknowledge；渲染不会改变领域数组。UI 显示六爻时从 `index 5` 到 `index 0`
 遍历，领域顺序保持 `index 0 = 初爻`。
+
+Renderer 的每个 `AppState` 都有明确 screen path。`Casting` 显示当前爻序和
+三枚铜钱提示；`LineResult` 在 `CoinAnimation` active 时只等待，finished 后
+显示铜钱、阴/阳、静爻/动爻和下一步。无动爻时停留在本卦结果，不进入空的之卦
+screen。History 只呈现记录顺序、本卦、动爻和存在时的之卦；Wi-Fi 页面把
+Off/Connecting/Connected/Failed/Timeout 映射为 `未连接`、`正在连接…`、`已连接`
+和 `连接失败` 等产品文案，不泄露内部错误码。
