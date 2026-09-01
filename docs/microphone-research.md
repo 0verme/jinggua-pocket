@@ -2,7 +2,10 @@
 
 ## 结论
 
-**GO WITH LIMITATIONS（仅限录音采集原型，不代表语音问事可发布）**。
+> 本文是 PR #22 的早期 Research 记录。完整验收矩阵与当前 harness 说明见
+> [`docs/research/microphone-validation.md`](research/microphone-validation.md)。
+
+**PENDING DEVICE VALIDATION（不能用编译通过替代真机声学、时长和功耗证据）**。
 
 StickS3 的硬件和 M5Unified 音频路径具备做短时、用户明确触发的本地采集的
 条件：官方规格给出 ES8311 单声道音频编解码器、MEMS 麦克风（SNR 65 dB）和
@@ -32,9 +35,11 @@ WS=`GPIO15`、DIN=`GPIO16`，使用 `I2S_NUM_1`；本仓库没有重新猜测或
 
 | 命令 | 场景 | 行为 |
 | --- | --- | --- |
-| `a` | ambient | 3 秒环境噪声采集 |
-| `v` | voice | 3 秒近场说话采集 |
-| `t` | transient | 3 秒拍手/敲击等瞬态采集 |
+| `a` | ambient | 使用当前配置的环境噪声采集 |
+| `v` | voice | 使用当前配置的近场说话采集 |
+| `t` | transient | 使用当前配置的拍手/敲击等瞬态采集 |
+| `r8000` / `r16000` | rate | 设置采样率（Hz） |
+| `d5` / `d15` / `d30` | duration | 设置录音时长（秒） |
 
 每次采集只在 RAM 中处理统计值，随后丢弃 PCM 样本；不会写 Flash、SD 卡，
 不会联网，也不会上传用户语音。串口输出包含：
@@ -45,9 +50,9 @@ WS=`GPIO15`、DIN=`GPIO16`，使用 `I2S_NUM_1`；本仓库没有重新猜测或
 - 采集前后的 free heap / free PSRAM。
 
 默认配置是 16,000 Hz、单声道、16-bit PCM、每块 256 samples、4 个 DMA
-buffer、每次 3,000 ms。每块工作缓冲为 512 bytes；若未来要在设备端保留完整
-3 秒原始音频，则至少需要约 96 KiB（16,000 × 3 × 2），本 Research 固件
-刻意不分配这段长期缓冲。
+buffer、每次 5,000 ms。每块工作缓冲为 512 bytes；harness 支持用 `d5`、`d15`、
+`d30` 选择 5/15/30 秒，刻意不分配整段长期 PCM 缓冲。完整的 buffer、heap、
+queue 和 duration 说明见新的 validation 文档。
 
 ## 真机复测步骤
 
@@ -59,8 +64,9 @@ python -m platformio run -e m5stack-sticks3-mic-research -t upload
 python -m platformio device monitor -b 115200
 ```
 
-串口出现 `[MicResearch] init OK` 后，按以下固定条件各执行至少 5 次，并保存
-完整串口日志（日志中只含统计值，不含语音样本）：
+串口出现 `[MicResearch] peripheral=stopped` 后，按 validation 文档设置
+`r8000` / `r16000` 与 `d5` / `d15` / `d30`，各组合至少执行 5 次，并保存完整
+串口日志（日志中只含统计值，不含语音样本）：
 
 1. 设备静置，麦克风前方约 30 cm 无人说话，发送 `a`。
 2. 保持相同距离，以固定音量朗读同一句中文，发送 `v`。
@@ -82,12 +88,12 @@ power_idle_ma, power_capture_ma
 | Issue #13 要求 | 当前证据 | 状态 |
 | --- | --- | --- |
 | 目标硬件麦克风输入 | 诊断环境和串口统计已实现；本机未连接 StickS3 | 待真机 |
-| sample rate / buffer / RAM | 固件固定并打印 16 kHz、256 samples、512 bytes 和 heap/PSRAM | 部分完成 |
-| 录音时长与编码 | 固定 3 秒；M5Unified `int16_t` 原始接口，即 PCM S16LE 单声道 | 代码已验证，时序待真机 |
+| sample rate / buffer / RAM | 固件默认 16 kHz，可切换候选 rate，并打印 block/DMA/heap/PSRAM/queue 指标 | 部分完成 |
+| 录音时长与编码 | 可配置 5/15/30 秒；M5Unified `int16_t` 原始接口，即 PCM S16LE 单声道 | 代码已验证，时序待真机 |
 | 噪声、可懂度、典型限制 | 需要 `a` / `v` / `t` 五次日志和人工听感记录 | 待真机 |
 | 录音期间功耗 | 需要外部 USB-C 电流计；当前环境没有仪表 | 待仪表 |
 | 是否必须上传 | 当前实现不上传；只输出匿名统计值 | 已确认（当前范围） |
-| 明确结论 | `GO WITH LIMITATIONS`：可做短时、显式触发的本地采集原型 | 已给出 |
+| 明确结论 | `PENDING DEVICE VALIDATION`：硬件路径有条件可行，但尚无声学/功耗真机证据 | 待真机 |
 
 ## 实现边界与替代方案
 
