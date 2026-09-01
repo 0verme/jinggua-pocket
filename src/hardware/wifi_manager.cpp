@@ -27,6 +27,15 @@ constexpr const char* kPassword = JINGGUA_WIFI_PASSWORD;
 
 }  // namespace
 
+void Esp32WifiManager::begin() noexcept {
+#if defined(ARDUINO)
+  WiFi.setAutoReconnect(false);
+  WiFi.disconnect();
+  WiFi.mode(WIFI_OFF);
+#endif
+  state_ = application::WifiState::Off;
+}
+
 application::WifiState Esp32WifiManager::state() const noexcept {
   return state_;
 }
@@ -49,6 +58,7 @@ bool Esp32WifiManager::enable() noexcept {
     return false;
   }
 #if defined(ARDUINO)
+  WiFi.setAutoReconnect(false);
   WiFi.disconnect();
   WiFi.mode(WIFI_STA);
   Serial.println("[WiFi] user requested connection");
@@ -66,6 +76,7 @@ bool Esp32WifiManager::enable() noexcept {
 
 void Esp32WifiManager::disable() noexcept {
 #if defined(ARDUINO)
+  WiFi.setAutoReconnect(false);
   WiFi.disconnect();
   WiFi.mode(WIFI_OFF);
   Serial.println("[WiFi] disabled by user");

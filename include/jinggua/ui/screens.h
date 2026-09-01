@@ -31,5 +31,8 @@ void renderWifiConnected(hardware::Display& display,
 void renderWifiFailed(hardware::Display& display,
                       const application::WifiController& wifi) noexcept;
 void renderWifiTimeout(hardware::Display& display) noexcept;
+void renderUploading(hardware::Display& display) noexcept;
+void renderUploadSuccess(hardware::Display& display) noexcept;
+void renderUploadFailed(hardware::Display& display) noexcept;
 
 }  // namespace jinggua::ui

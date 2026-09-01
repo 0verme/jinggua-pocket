@@ -4,6 +4,7 @@
 #include <cstdint>
 
 #include "jinggua/application/divination_session.h"
+#include "jinggua/application/jinggua_api_client.h"
 #include "jinggua/application/history_store.h"
 #include "jinggua/application/input_event.h"
 #include "jinggua/application/wifi_controller.h"
@@ -25,6 +26,9 @@ enum class AppState {
   WifiConnected,
   WifiFailed,
   WifiTimeout,
+  Uploading,
+  UploadSuccess,
+  UploadFailed,
 };
 
 const char* appStateName(AppState state) noexcept;
@@ -41,6 +45,12 @@ class StateMachine final {
   StateMachine(DivinationSession& session, WifiController& wifi,
                HistoryStore* history = nullptr) noexcept;
 
+  // Adds the optional API port. The result page can upload only after the
+  // injected WifiController reports Connected; nullptr/legacy constructors
+  // preserve the offline-only behavior.
+  StateMachine(DivinationSession& session, WifiController& wifi,
+               ApiClient& apiClient, HistoryStore* history = nullptr) noexcept;
+
   void begin() noexcept;
   void handleInput(InputEvent event) noexcept;
   void finishLineAnimation() noexcept;
@@ -50,6 +60,7 @@ class StateMachine final {
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   const DivinationSession& session() const noexcept { return session_; }
   const WifiController& wifi() const noexcept { return *wifi_; }
+  const ApiResult& lastApiResult() const noexcept { return lastApiResult_; }
   bool isDirty() const noexcept { return dirty_; }
   void acknowledgeRender() noexcept { dirty_ = false; }
 
@@ -61,6 +72,7 @@ class StateMachine final {
   void transitionTo(AppState next) noexcept;
   void castLine() noexcept;
   void handleResultAction() noexcept;
+  void requestUpload() noexcept;
 
   // Move the history browser cursor by a signed offset, clamped to the
   // available record range.
@@ -72,6 +84,11 @@ class StateMachine final {
   DivinationSession& session_;
   HistoryStore* history_{nullptr};
   WifiController* wifi_{nullptr};
+  ApiClient* apiClient_{nullptr};
+  std::uint32_t localRecordId_{0};
+  ApiResult lastApiResult_{ApiResult::failure(ApiError::Offline)};
+  bool uploadStarted_{false};
+  AppState uploadReturnState_{AppState::HexagramResult};
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
   bool lineAnimationActive_{false};

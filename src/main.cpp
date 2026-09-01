@@ -4,10 +4,12 @@
 #include <limits>
 
 #include "jinggua/application/divination_session.h"
+#include "jinggua/application/jinggua_api_client.h"
 #include "jinggua/application/ring_history_store.h"
 #include "jinggua/application/state_machine.h"
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
+#include "jinggua/hardware/https_transport.h"
 #include "jinggua/hardware/imu.h"
 #include "jinggua/hardware/microphone_research.h"
 #include "jinggua/hardware/preferences_slot_storage.h"
@@ -28,7 +30,9 @@ jinggua::hardware::PreferencesSlotStorage slotStorage;
 jinggua::application::RingHistoryStore historyStore(slotStorage);
 jinggua::application::DivinationSession session(randomProvider);
 jinggua::hardware::Esp32WifiManager wifiManager;
-jinggua::application::StateMachine stateMachine(session, wifiManager,
+jinggua::hardware::Esp32HttpsTransport apiTransport;
+jinggua::application::JingGuaApiClient apiClient(apiTransport);
+jinggua::application::StateMachine stateMachine(session, wifiManager, apiClient,
                                                  &historyStore);
 jinggua::ui::Renderer renderer(display);
 
@@ -270,6 +274,9 @@ void setup() {
   imu.begin();
   Serial.println("[IMU] init OK");
 
+  wifiManager.begin();
+  Serial.println("[WiFi] boot radio OFF");
+
   const bool historyReady = historyStore.begin();
   Serial.print("[History] init ");
   Serial.println(historyReady ? "OK" : "FAIL");
@@ -299,8 +306,8 @@ void loop() {
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   pollMicResearchCommand();
 #endif
-  stateMachine.update(millis());
   const auto previousState = stateMachine.state();
+  stateMachine.update(millis());
   const auto previousLineCount = stateMachine.session().lineCount();
   const bool animationWasActive = stateMachine.isLineAnimationActive();
   auto event = buttons.poll();
@@ -361,6 +368,15 @@ void loop() {
     Serial.print(jinggua::application::appStateName(previousState));
     Serial.print(" -> ");
     Serial.println(jinggua::application::appStateName(stateMachine.state()));
+    if (stateMachine.state() ==
+        jinggua::application::AppState::UploadFailed) {
+      Serial.print("[API] upload failed error=");
+      Serial.println(jinggua::application::apiErrorName(
+          stateMachine.lastApiResult().error));
+    } else if (stateMachine.state() ==
+               jinggua::application::AppState::UploadSuccess) {
+      Serial.println("[API] upload accepted");
+    }
   }
   if (stateMachine.session().lineCount() > previousLineCount) {
     const auto* line = stateMachine.session().latestLine();

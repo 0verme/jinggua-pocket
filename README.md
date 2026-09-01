@@ -12,9 +12,10 @@ another divination firmware.
 长期愿景是让设备完成实体摇卦，在本地生成六爻、本卦、动爻与之卦，再
 由用户明确触发 Wi-Fi 联动，把完整解卦、历史与分享交给 JingGua Web。
 
-当前仓库只做 **Phase 0 工程初始化 + Hardware v0.2 离线骨架**：先把领域
-逻辑、输入抽象、状态机和真机硬件边界建立清楚，不提前引入云端、AI 或
-用户数据收集。
+当前仓库包含 **Phase 0 工程初始化 + Hardware v0.2 离线骨架 + Issue #8
+Connected JingGua 最小 API Contract**：先把领域逻辑、输入抽象、状态机和真机
+硬件边界建立清楚；可选联网只上传已在本地完成的结果，不引入云端随机、AI 或
+用户问题数据收集。
 
 ## 当前状态
 
@@ -23,10 +24,12 @@ another divination firmware.
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
   峰间隔与 cooldown；Button 仍可作为 fallback。
-- **Wi-Fi 流程已实现（Issue #7，离线优先）**：设备默认关闭射频，只有用户
-  从设置页显式触发才连接；连接异步非阻塞、15 秒超时、失败/超时不自动
-  重连。当前只完成连接流程，不包含 JingGua API、设备绑定、二维码或 OTA。
-  凭据通过构建期环境变量注入，不提交到仓库（见下文「Wi-Fi 开发配置」）。
+- **Wi-Fi 与 JingGua API 已实现（Issue #7/#8，离线优先）**：设备启动时将
+  radio 置为关闭，只有用户从设置页显式触发才连接；连接异步非阻塞、15 秒超时、
+  失败/超时不自动重连。完整六爻先在本地生成，结果页按 B 才上传；上传使用
+  HTTPS、CA 校验、bounded payload/response、错误分类和手动 retry。当前不包含
+  设备绑定、二维码、历史自动同步或 OTA。凭据通过构建期环境变量注入，不提交到
+  仓库（见下文「Wi-Fi/API 开发配置」）。
 - 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
   该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
   [`docs/microphone-research.md`](docs/microphone-research.md)。
@@ -71,17 +74,17 @@ PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录�
 
 ### 明确不在本阶段
 
-AI 解卦、完整经文、**Wi-Fi API 交互（连接流程已实现）**、OAuth、数据库、BLE、OTA、
-二维码、语音、自定义 PCB、外壳和多硬件兼容都不在 Phase 0 scope 内。
+AI 解卦、完整经文、OAuth、数据库管理、BLE 配网、设备绑定、历史自动同步、
+OTA、二维码、语音、自定义 PCB、外壳和多硬件兼容都不在本 Issue #8 scope 内。
 
 ## Architecture
 
 ```text
-hardware (StickS3 / M5Unified)
-        │  InputEvent + Display primitives
+hardware (StickS3 / M5Unified / HTTPS)
+        │  InputEvent + adapters
         ▼
-application (DivinationSession + StateMachine)
-        │  domain values
+application (Session + StateMachine + ApiClient)
+        │  const domain values / ports
         ▼
 domain (coin / yao / trigram / hexagram / transformation)
         ▲
@@ -103,6 +106,7 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/divination-model.md`](docs/divination-model.md)
 - [`docs/state-machine.md`](docs/state-machine.md)
 - [`docs/coin-animation.md`](docs/coin-animation.md)
+- [`docs/api-contract.md`](docs/api-contract.md)
 
 ## Development
 
@@ -116,8 +120,9 @@ cmake --build build/native
 ctest --test-dir build/native --output-on-failure
 ```
 
-测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序
-以及完整状态流。Host tests 使用 deterministic `RandomProvider`，不会调用
+测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序、
+完整状态流，以及 API contract 的 fake transport/client、离线保护、错误、bounded
+response 和手动 retry。Host tests 使用 deterministic `RandomProvider`，不会调用
 Arduino `random()`。
 
 字体子集完整性检查：
@@ -139,11 +144,12 @@ pio device monitor -b 115200
 工程只有一个硬件 environment；native tests 使用独立 CMake harness，避免
 为了主机测试伪造一个额外的硬件兼容 environment。
 
-### Wi-Fi 开发配置
+### Wi-Fi/API 开发配置
 
-固件默认不定义任何 Wi-Fi 凭据；未配置时设置页点「连接」会提示「未配置
-Wi-Fi」，固件仍可编译、刷机与离线起卦。需要真机验证 Wi-Fi 时，在构建前
-设置环境变量（不要写进仓库）：
+固件默认不定义任何 Wi-Fi 凭据或 API 配置；未配置时设置页点「连接」会提示
+「未配置 Wi-Fi」，即使连接成功但没有 API URL/CA，上传也会安全失败。固件仍可
+编译、刷机、离线起卦和保存本地历史。需要真机验证时，在构建前设置环境变量
+（不要写进仓库）：
 
 ```bash
 # macOS / Linux
@@ -152,10 +158,14 @@ JINGGUA_WIFI_SSID="你的SSID" JINGGUA_WIFI_PASSWORD="你的密码" pio run -e m
 # Windows (PowerShell)
 $env:JINGGUA_WIFI_SSID="你的SSID"
 $env:JINGGUA_WIFI_PASSWORD="你的密码"
+$env:JINGGUA_API_URL="https://your-jinggua-host.example/api/divinations"
+$env:JINGGUA_API_ROOT_CA="-----BEGIN CERTIFICATE-----..."
 pio run -e m5stack-sticks3
 ```
 
-`tools/wifi_credentials.py` 会把这些值以 C 字符串字面量注入 `build_flags`；
+`tools/wifi_credentials.py` 注入 Wi-Fi 构建参数，`tools/api_config.py` 注入
+API URL 和公开 CA certificate；脚本不会打印 API 配置。没有 CA 时不会调用
+`setInsecure()`，而是 fail closed。
 `.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
 credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
 详见 [`docs/hardware.md`](docs/hardware.md) 的「Wi-Fi Provisioning TODO」。
@@ -166,7 +176,8 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
 
 - **v0.1**：StickS3、Button 起卦、三枚铜钱、六爻、本卦、动爻、之卦、离线。
 - **v0.2**：IMU Shake、铜钱动画、音效、UI polish。
-- **v0.3**：用户明确触发 Wi-Fi、JingGua API、设备绑定、二维码、手机完整解卦。
+- **v0.3**：用户明确触发 Wi-Fi、JingGua API 最小 Contract（Issue #8）；设备绑定、
+  二维码和手机完整解卦另行实现。
 - **v0.4**：历史记录与 Web / Device 同步。
 - **v0.5**：麦克风与语音问事。
 - **v1.0**：定制外壳、稳定固件、OTA、正式 Release。
@@ -177,10 +188,10 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
 
 ## Privacy and disclaimer
 
-v0.1 是离线工具，不上传用户所问之事，不做遥测、Analytics、设备指纹或
-自动联网。v0.2 新增 Wi-Fi 连接流程，但**设备默认不联网**：射频在开机时
-处于关闭状态，只有用户从设置页按 A 显式触发后才开始连接；连接成功后也不
-做自动数据上报。未来联网能力必须由用户明确动作触发。
+设备不上传用户所问之事，不采集 MAC/芯片唯一 ID，不做自动联网或后台上报。
+Issue #8 新增的 API 只在用户完成六爻并在结果页按 B 后发送已完成结果；设备默认
+在开机时关闭 radio，连接成功后也不自动上传。请求不包含长期 credential；未来
+正式设备绑定属于 #9。
 
 本项目是文化与自我反思用途的工具，不替代医疗、法律、财务或其他专业
 判断。卦象算法和显示顺序会在测试与真机 Bring-up 中持续校验。

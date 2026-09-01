@@ -21,6 +21,7 @@ add_executable(jinggua_native_tests
   test_ring_history_store.cpp
   test_state_machine.cpp
   test_wifi.cpp
+  test_api.cpp
   test_transform.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
@@ -45,6 +46,8 @@ add_executable(jinggua_native_tests
   ../../src/hardware/random.cpp
   ../../src/ui/history_screen.cpp
   ../../src/hardware/wifi_manager.cpp
+  ../../src/hardware/https_transport.cpp
+  ../../src/application/jinggua_api_client.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp
   ../../src/ui/coin_animation.cpp

@@ -179,7 +179,8 @@ void renderHexagramResult(
   }
   display.drawText(moving, kMargin, display.height() - 34, kCopper,
                    typography::kAuxiliary);
-  drawFooter(display, result->hasMovingLines() ? "A 查看之卦" : "A 重新起卦");
+  drawFooter(display, result->hasMovingLines() ? "A 查看之卦 · B 上传"
+                                                : "A 重新起卦 · B 上传");
 }
 
 void renderTransformedResult(
@@ -196,7 +197,7 @@ void renderTransformedResult(
   const int lineTop =
       drawResultHeader(display, "之卦", *result->transformed);
   drawHexagram(display, *result->transformed, lineTop);
-  drawFooter(display, "A 重新起卦");
+  drawFooter(display, "A 重新起卦 · B 上传");
 }
 
 void renderResetConfirm(hardware::Display& display) noexcept {
@@ -231,7 +232,9 @@ void renderWifiSettings(hardware::Display& display,
   } else if (!wifi.configured()) {
     display.drawText("未配置网络", kMargin, 62, kMuted, typography::kBody);
   }
-  drawFooter(display, "A 连接 · B 返回");
+  drawFooter(display, wifi.state() == application::WifiState::Connected
+                           ? "A 查看连接 · B 返回"
+                           : "A 连接 · B 返回");
 }
 
 void renderWifiConnecting(hardware::Display& display) noexcept {
@@ -247,7 +250,7 @@ void renderWifiConnected(hardware::Display& display,
   drawTitle(display, "Wi-Fi");
   display.drawText("连接成功", kMargin, 30, kIvory, typography::kResult);
   display.drawText(wifi.ssid(), kMargin, 60, kMuted, typography::kBody);
-  drawFooter(display, "A 关闭 Wi-Fi");
+  drawFooter(display, "A 关闭 Wi-Fi · B 设置");
 }
 
 void renderWifiFailed(hardware::Display& display,
@@ -263,6 +266,28 @@ void renderWifiTimeout(hardware::Display& display) noexcept {
   clearScreen(display);
   drawTitle(display, "Wi-Fi");
   display.drawText("连接超时", kMargin, 34, kIvory, typography::kResult);
+  drawFooter(display, "A 重试 · B 返回");
+}
+
+void renderUploading(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传中…", kMargin, 42, kIvory, typography::kResult);
+  drawFooter(display, "请稍候");
+}
+
+void renderUploadSuccess(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传成功", kMargin, 42, kIvory, typography::kResult);
+  drawFooter(display, "A 返回结果");
+}
+
+void renderUploadFailed(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传失败", kMargin, 36, kIvory, typography::kResult);
+  display.drawText("稍后重试", kMargin, 68, kMuted, typography::kBody);
   drawFooter(display, "A 重试 · B 返回");
 }
 

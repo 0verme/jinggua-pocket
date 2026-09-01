@@ -80,6 +80,15 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
     case application::AppState::WifiTimeout:
       renderWifiTimeout(display_);
       break;
+    case application::AppState::Uploading:
+      renderUploading(display_);
+      break;
+    case application::AppState::UploadSuccess:
+      renderUploadSuccess(display_);
+      break;
+    case application::AppState::UploadFailed:
+      renderUploadFailed(display_);
+      break;
   }
 }
 

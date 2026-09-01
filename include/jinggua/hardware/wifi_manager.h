@@ -18,6 +18,10 @@ class Esp32WifiManager final : public application::WifiController {
 
   Esp32WifiManager() noexcept = default;
 
+  // Initialize the radio in the guaranteed-off boot state. This is called
+  // from setup(), not from the global constructor, so Arduino is ready.
+  void begin() noexcept;
+
   application::WifiState state() const noexcept override;
   bool enable() noexcept override;
   void disable() noexcept override;

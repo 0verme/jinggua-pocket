@@ -1,6 +1,7 @@
 # Roadmap
 
-路线按硬件成熟度推进，不提前实现复杂云端能力。
+路线按硬件成熟度推进，不提前实现复杂云端能力。每个仓库的变更保持独立，
+Pocket 与 JingGua Web 不混在同一个 Git 工作树或 commit 中。
 
 ## v0.1 — Hardware v0.1 离线骨架
 
@@ -22,21 +23,26 @@
 - **用户触发的离线优先 Wi-Fi 流程（Issue #7）**：设置页显式连接、
   非阻塞异步、15 秒超时、失败/超时不自动重连、用户主动关闭。
 
-## v0.3 — 用户触发的 Web 联动
+## v0.3 — Connected JingGua
 
-- Wi-Fi credential provisioning（BLE / 二维码 / Web 配网）
-- `jinggua` API
-- 设备绑定
-- 二维码
-- 手机查看完整解卦
+- **Issue #8：Pocket → JingGua API 最小 Contract 已实现**：
+  - 六爻先在 ESP32 本地完整生成；API 只接收已完成结果；
+  - 复用 Web `POST /api/divinations` 的 `line_values`、本卦编号、动爻和之卦编号；
+  - `JingGuaApiClient` / `HttpTransport` / `ApiResult` ports 与 fake native tests；
+  - HTTPS、CA 校验、bounded payload/response、timeout、错误分类和手动 retry；
+  - 不发送问题、MAC、芯片唯一 ID 或长期 credential。
+- **Issue #9：Device Binding**（未在本 Issue 实现）
+- **Issue #10：QR Code**（未在本 Issue 实现）
+- 手机查看完整解卦（待 API/产品契约另行确定）
 
 ## v0.4 — 同步
 
-- 历史记录
+- **Issue #12：历史记录自动补同步**（未在 #8 实现）
 - Web / Device 同步
 
 ## v0.5 — 语音入口
 
+- **Issue #14：Voice**（未在本 Issue 实现）
 - 麦克风
 - 语音问事
 
@@ -44,7 +50,7 @@
 
 - 定制外壳
 - 稳定固件
-- OTA
+- OTA（未在本 Issue 实现）
 - 正式 Release
 
 ## 当前明确不规划
@@ -52,15 +58,31 @@
 本路线不承诺 PCB v2、自定义电路、其他 M5Stack 兼容板、AI 解卦或完整经典
 文本的固件内置方案；这些要在未来需求明确后另行评估。
 
-## 下一步
+## Issue #8 边界
 
-> **Hardware v0.1 真机 Bring-up**
+本期数据流严格为：
 
-StickS3 到手后，按以下顺序推进：
+```text
+ESP32 RNG
+  ↓
+DivinationSession
+  ↓
+complete local hexagram
+  ↓
+optional user-triggered Wi-Fi
+  ↓
+JingGua API
+  ↓
+server record
+```
 
-1. 第一次刷机并确认串口日志。
-2. 验证屏幕方向、清屏、文字与六爻线段。
-3. 验证 `BtnA` / `BtnB` 的点击与长按事件。
-4. 读取 BMI270 加速度/角速度样本，记录静止与摇动数据。
-5. 校准 threshold/window/cooldown。
-6. 将完整六爻 Button 流程和最小 Shake 流程跑上真机。
+服务器不能参与随机过程。不开 Wi-Fi 仍可启动、起卦、查看结果和保存本地历史；
+API 失败不会阻止本地起卦。自动历史补同步、绑定、二维码、语音、OTA 和自动 Wi-Fi
+均延期到各自 Issue。
+
+## 后续 Bring-up
+
+1. 使用 `JINGGUA_API_URL` 和公开 `JINGGUA_API_ROOT_CA` 构建配置验证 HTTPS。
+2. 先在 local fake server / mocked transport 验证 Contract，不宣称生产 E2E。
+3. 真机验证“开机 radio off → 用户连接 → 结果页 B 上传 → 失败手动 retry”。
+4. 另行设计 #9 credential 与 #12 sync，不把其状态提前塞进 #8。
