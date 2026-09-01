@@ -316,7 +316,8 @@ void renderHexagramResult(
   const int lineTop = drawResultHeader(display, "本卦", result->original);
   drawMovingSummary(display, *result, layout::kResultMovingY);
   drawHexagram(display, result->original, lineTop);
-  drawFooter(display, result->hasMovingLines() ? "A 查看之卦" : "A 重新起卦");
+  drawFooter(display, result->hasMovingLines() ? "A 查看之卦 · B 上传"
+                                                : "A 重新起卦 · B 上传");
 }
 
 void renderTransformedResult(
@@ -341,7 +342,7 @@ void renderTransformedResult(
 
   const int lineTop = drawResultHeader(display, "→ 之卦", *result->transformed);
   drawHexagram(display, *result->transformed, lineTop);
-  drawFooter(display, "A 重新起卦");
+  drawFooter(display, "A 重新起卦 · B 上传");
 }
 
 void renderResetConfirm(hardware::Display& display) noexcept {
@@ -384,7 +385,7 @@ void renderWifiConnected(hardware::Display& display,
   display.drawText("已连接", margin(display), layout::kWifiStatusY,
                    theme::kText, typography::kPrimary);
   drawSsid(display, wifi);
-  drawFooter(display, "A 断开");
+  drawFooter(display, "A 断开", "B 设置");
 }
 
 void renderWifiFailed(hardware::Display& display,
@@ -402,6 +403,32 @@ void renderWifiTimeout(hardware::Display& display) noexcept {
   drawTitle(display, "Wi-Fi");
   display.drawText("连接失败", margin(display), layout::kWifiStatusY,
                    theme::kText, typography::kPrimary);
+  drawFooter(display, "A 重试  B 返回");
+}
+
+void renderUploading(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传中…", margin(display), layout::kContentY, theme::kText,
+                   typography::kPrimary);
+  drawFooter(display, "请稍候");
+}
+
+void renderUploadSuccess(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传成功", margin(display), layout::kContentY, theme::kText,
+                   typography::kPrimary);
+  drawFooter(display, "A 返回结果");
+}
+
+void renderUploadFailed(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "JingGua");
+  display.drawText("上传失败", margin(display), layout::kContentY, theme::kText,
+                   typography::kPrimary);
+  display.drawText("稍后重试", margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
   drawFooter(display, "A 重试  B 返回");
 }
 

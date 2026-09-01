@@ -37,6 +37,12 @@ const char* appStateName(AppState state) noexcept {
       return "WIFI_FAILED";
     case AppState::WifiTimeout:
       return "WIFI_TIMEOUT";
+    case AppState::Uploading:
+      return "UPLOADING";
+    case AppState::UploadSuccess:
+      return "UPLOAD_SUCCESS";
+    case AppState::UploadFailed:
+      return "UPLOAD_FAILED";
   }
   return "UNKNOWN";
 }
@@ -48,6 +54,13 @@ StateMachine::StateMachine(DivinationSession& session,
 StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
                            HistoryStore* history) noexcept
     : session_(session), history_(history), wifi_(&wifi) {}
+
+StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
+                           ApiClient& apiClient, HistoryStore* history) noexcept
+    : session_(session),
+      history_(history),
+      wifi_(&wifi),
+      apiClient_(&apiClient) {}
 
 void StateMachine::setAudioController(AudioController& audio) noexcept {
   audio_ = &audio;
@@ -94,6 +107,8 @@ void StateMachine::handleInput(InputEvent event) noexcept {
     case AppState::Prepare:
       if (event == InputEvent::PrimaryClick) {
         session_.reset();
+        localRecordId_ = 0;
+        uploadStarted_ = false;
         transitionTo(AppState::Casting);
         playSound(SoundCue::Start);
       }
@@ -116,17 +131,25 @@ void StateMachine::handleInput(InputEvent event) noexcept {
     case AppState::HexagramResult:
       if (event == InputEvent::PrimaryClick) {
         handleResultAction();
+      } else if (event == InputEvent::SecondaryClick) {
+        uploadReturnState_ = AppState::HexagramResult;
+        requestUpload();
       }
       break;
     case AppState::TransformedResult:
       if (event == InputEvent::PrimaryClick) {
         resetReturnState_ = AppState::TransformedResult;
         transitionTo(AppState::ResetConfirm);
+      } else if (event == InputEvent::SecondaryClick) {
+        uploadReturnState_ = AppState::TransformedResult;
+        requestUpload();
       }
       break;
     case AppState::ResetConfirm:
       if (event == InputEvent::PrimaryClick || event == InputEvent::LongPress) {
         session_.reset();
+        localRecordId_ = 0;
+        uploadStarted_ = false;
         transitionTo(AppState::Prepare);
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(resetReturnState_);
@@ -145,7 +168,9 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       if (event == InputEvent::PrimaryClick) {
         // Only the user can trigger a connection. If no credentials are
         // configured the controller refuses and we show a failure screen.
-        if (wifi_->enable()) {
+        if (wifi_->state() == WifiState::Connected) {
+          transitionTo(AppState::WifiConnected);
+        } else if (wifi_->enable()) {
           transitionTo(AppState::WifiConnecting);
         } else {
           transitionTo(AppState::WifiFailed);
@@ -168,6 +193,8 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       if (event == InputEvent::PrimaryClick) {
         wifi_->disable();
         transitionTo(AppState::Settings);
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Settings);
       }
       break;
     case AppState::WifiFailed:
@@ -186,6 +213,24 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         }
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(AppState::Settings);
+      }
+      break;
+    case AppState::Uploading:
+      // Upload is advanced by update(); input cannot create a second request.
+      break;
+    case AppState::UploadSuccess:
+      if (event == InputEvent::PrimaryClick ||
+          event == InputEvent::SecondaryClick) {
+        transitionTo(uploadReturnState_);
+      }
+      break;
+    case AppState::UploadFailed:
+      if (event == InputEvent::PrimaryClick) {
+        // Retry is always another explicit user action; there is no timer or
+        // background retry path.
+        requestUpload();
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(uploadReturnState_);
       }
       break;
   }
@@ -207,6 +252,41 @@ bool StateMachine::sleepAllowed() const noexcept {
 }
 
 void StateMachine::update(std::uint32_t nowMs) noexcept {
+  if (state_ == AppState::Uploading) {
+    if (!uploadStarted_) {
+      if (wifi_ == nullptr) {
+        lastApiResult_ = ApiResult::failure(ApiError::WifiUnavailable);
+        transitionTo(AppState::UploadFailed);
+      } else if (wifi_->state() != WifiState::Connected) {
+        lastApiResult_ = ApiResult::failure(ApiError::Offline);
+        transitionTo(AppState::UploadFailed);
+      } else if (apiClient_ == nullptr) {
+        lastApiResult_ = ApiResult::failure(ApiError::TransportError);
+        transitionTo(AppState::UploadFailed);
+      } else if (!apiClient_->beginUpload(session_, localRecordId_)) {
+        lastApiResult_ = ApiResult::failure(ApiError::TransportError);
+        transitionTo(AppState::UploadFailed);
+      } else {
+        uploadStarted_ = true;
+      }
+      return;
+    }
+
+    if (apiClient_ == nullptr) {
+      lastApiResult_ = ApiResult::failure(ApiError::TransportError);
+      uploadStarted_ = false;
+      transitionTo(AppState::UploadFailed);
+      return;
+    }
+    lastApiResult_ = apiClient_->poll();
+    if (!lastApiResult_.isPending()) {
+      uploadStarted_ = false;
+      transitionTo(lastApiResult_.isSuccess() ? AppState::UploadSuccess
+                                              : AppState::UploadFailed);
+    }
+    return;
+  }
+
   if (wifi_ == nullptr || state_ != AppState::WifiConnecting) {
     return;
   }
@@ -254,6 +334,7 @@ void StateMachine::playSound(SoundCue cue) noexcept {
 }
 
 void StateMachine::persistIfComplete() noexcept {
+  localRecordId_ = 0;
   if (history_ == nullptr || !session_.isComplete()) {
     return;
   }
@@ -262,9 +343,35 @@ void StateMachine::persistIfComplete() noexcept {
     return;
   }
   auto record = domain::makeHistoryRecord(*result);
-  if (record.has_value()) {
-    history_->add(*record);
+  if (record.has_value() && history_->add(*record)) {
+    localRecordId_ = record->localRecordId;
   }
+}
+
+void StateMachine::requestUpload() noexcept {
+  uploadStarted_ = false;
+  if (!session_.isComplete() || !session_.result().has_value()) {
+    lastApiResult_ = ApiResult::failure(ApiError::InvalidResponse);
+    transitionTo(AppState::UploadFailed);
+    return;
+  }
+  if (wifi_ == nullptr) {
+    lastApiResult_ = ApiResult::failure(ApiError::WifiUnavailable);
+    transitionTo(AppState::UploadFailed);
+    return;
+  }
+  if (wifi_->state() != WifiState::Connected) {
+    lastApiResult_ = ApiResult::failure(ApiError::Offline);
+    transitionTo(AppState::UploadFailed);
+    return;
+  }
+  if (apiClient_ == nullptr) {
+    lastApiResult_ = ApiResult::failure(ApiError::TransportError);
+    transitionTo(AppState::UploadFailed);
+    return;
+  }
+
+  transitionTo(AppState::Uploading);
 }
 
 void StateMachine::moveHistoryCursor(int delta) noexcept {
