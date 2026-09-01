@@ -82,4 +82,12 @@ const HexagramDefinition* findHexagram(domain::TrigramId upper,
   return nullptr;
 }
 
+const HexagramDefinition* findHexagramByNumber(
+    std::uint8_t number) noexcept {
+  if (number < 1 || number > 64) {
+    return nullptr;
+  }
+  return &allHexagrams()[number - 1];
+}
+
 }  // namespace jinggua::data

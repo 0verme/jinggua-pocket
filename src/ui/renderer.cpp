@@ -1,5 +1,6 @@
 #include "jinggua/ui/renderer.h"
 
+#include "jinggua/ui/history_screen.h"
 #include "jinggua/ui/screens.h"
 
 namespace jinggua::ui {
@@ -29,6 +30,9 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
       break;
     case application::AppState::ResetConfirm:
       renderResetConfirm(display_);
+      break;
+    case application::AppState::History:
+      renderHistory(display_, stateMachine);
       break;
     case application::AppState::Settings:
       renderWifiSettings(display_, stateMachine.wifi());

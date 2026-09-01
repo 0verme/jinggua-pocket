@@ -1,5 +1,10 @@
 #include "jinggua/application/state_machine.h"
 
+#include <cstddef>
+#include <cstdint>
+
+#include "jinggua/domain/history_record.h"
+
 namespace jinggua::application {
 
 const char* appStateName(AppState state) noexcept {
@@ -20,6 +25,8 @@ const char* appStateName(AppState state) noexcept {
       return "TRANSFORMED_RESULT";
     case AppState::ResetConfirm:
       return "RESET_CONFIRM";
+    case AppState::History:
+      return "HISTORY";
     case AppState::Settings:
       return "SETTINGS";
     case AppState::WifiConnecting:
@@ -35,8 +42,12 @@ const char* appStateName(AppState state) noexcept {
 }
 
 StateMachine::StateMachine(DivinationSession& session,
-                           WifiController& wifi) noexcept
-    : session_(session), wifi_(wifi) {}
+                           HistoryStore* history) noexcept
+    : session_(session), history_(history) {}
+
+StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
+                           HistoryStore* history) noexcept
+    : session_(session), history_(history), wifi_(&wifi) {}
 
 void StateMachine::begin() noexcept {
   if (state_ == AppState::Boot) {
@@ -57,7 +68,11 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       if (event == InputEvent::PrimaryClick) {
         transitionTo(AppState::Prepare);
       } else if (event == InputEvent::SecondaryClick) {
-        transitionTo(AppState::Settings);
+        transitionTo(wifi_ != nullptr ? AppState::Settings : AppState::History);
+      } else if (event == InputEvent::LongPress) {
+        // Keep the Wi-Fi shortcut on B while exposing history on the long
+        // press path when both optional features are available.
+        transitionTo(AppState::History);
       }
       break;
     case AppState::Prepare:
@@ -100,11 +115,20 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(resetReturnState_);
       }
       break;
+    case AppState::History:
+      if (event == InputEvent::PrimaryClick) {
+        moveHistoryCursor(-1);  // A = older
+      } else if (event == InputEvent::SecondaryClick) {
+        moveHistoryCursor(1);  // B = newer
+      } else if (event == InputEvent::LongPress) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
     case AppState::Settings:
       if (event == InputEvent::PrimaryClick) {
         // Only the user can trigger a connection. If no credentials are
         // configured the controller refuses and we show a failure screen.
-        if (wifi_.enable()) {
+        if (wifi_->enable()) {
           transitionTo(AppState::WifiConnecting);
         } else {
           transitionTo(AppState::WifiFailed);
@@ -115,19 +139,19 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       break;
     case AppState::WifiConnecting:
       if (event == InputEvent::SecondaryClick) {
-        wifi_.disable();
+        wifi_->disable();
         transitionTo(AppState::Settings);
       }
       break;
     case AppState::WifiConnected:
       if (event == InputEvent::PrimaryClick) {
-        wifi_.disable();
+        wifi_->disable();
         transitionTo(AppState::Settings);
       }
       break;
     case AppState::WifiFailed:
       if (event == InputEvent::PrimaryClick) {
-        if (wifi_.enable()) {
+        if (wifi_->enable()) {
           transitionTo(AppState::WifiConnecting);
         }
       } else if (event == InputEvent::SecondaryClick) {
@@ -136,7 +160,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       break;
     case AppState::WifiTimeout:
       if (event == InputEvent::PrimaryClick) {
-        if (wifi_.enable()) {
+        if (wifi_->enable()) {
           transitionTo(AppState::WifiConnecting);
         }
       } else if (event == InputEvent::SecondaryClick) {
@@ -147,10 +171,10 @@ void StateMachine::handleInput(InputEvent event) noexcept {
 }
 
 void StateMachine::update(std::uint32_t nowMs) noexcept {
-  if (state_ != AppState::WifiConnecting) {
+  if (wifi_ == nullptr || state_ != AppState::WifiConnecting) {
     return;
   }
-  switch (wifi_.update(nowMs)) {
+  switch (wifi_->update(nowMs)) {
     case WifiState::Connected:
       transitionTo(AppState::WifiConnected);
       break;
@@ -167,6 +191,7 @@ void StateMachine::update(std::uint32_t nowMs) noexcept {
 
 void StateMachine::castLine() noexcept {
   if (session_.castLine()) {
+    persistIfComplete();
     transitionTo(AppState::LineResult);
     // The state does not change when Shake advances from one result to the
     // next, but the renderer still needs to show the new line.
@@ -174,11 +199,49 @@ void StateMachine::castLine() noexcept {
   }
 }
 
+void StateMachine::persistIfComplete() noexcept {
+  if (history_ == nullptr || !session_.isComplete()) {
+    return;
+  }
+  const auto& result = session_.result();
+  if (!result.has_value()) {
+    return;
+  }
+  auto record = domain::makeHistoryRecord(*result);
+  if (record.has_value()) {
+    history_->add(*record);
+  }
+}
+
+void StateMachine::moveHistoryCursor(int delta) noexcept {
+  if (history_ == nullptr || history_->count() == 0) {
+    return;
+  }
+  const std::size_t count = history_->count();
+  const std::int64_t current =
+      static_cast<std::int64_t>(historyCursor_);
+  const std::int64_t next = current + delta;
+  if (next < 0) {
+    historyCursor_ = 0;
+  } else if (static_cast<std::size_t>(next) >= count) {
+    historyCursor_ = count - 1;
+  } else {
+    historyCursor_ = static_cast<std::size_t>(next);
+  }
+  dirty_ = true;
+}
+
 void StateMachine::transitionTo(AppState next) noexcept {
   if (state_ == next) {
     return;
   }
   state_ = next;
+  if (next == AppState::History) {
+    // Start browsing at the newest record.
+    historyCursor_ = (history_ != nullptr && history_->count() > 0)
+                         ? history_->count() - 1
+                         : 0;
+  }
   dirty_ = true;
 }
 

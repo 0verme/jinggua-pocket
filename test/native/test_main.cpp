@@ -11,6 +11,10 @@ void runMicrophoneResearchTests(TestRunner& runner);
 void runTransformTests(TestRunner& runner);
 void runOrderingTests(TestRunner& runner);
 void runStateMachineTests(TestRunner& runner);
+void runHistoryRecordTests(TestRunner& runner);
+void runHistoryIndexTests(TestRunner& runner);
+void runRingHistoryStoreTests(TestRunner& runner);
+void runHistoryApplicationTests(TestRunner& runner);
 void runWifiTests(TestRunner& runner);
 
 int main() {
@@ -24,6 +28,10 @@ int main() {
   runTransformTests(runner);
   runOrderingTests(runner);
   runStateMachineTests(runner);
+  runHistoryRecordTests(runner);
+  runHistoryIndexTests(runner);
+  runRingHistoryStoreTests(runner);
+  runHistoryApplicationTests(runner);
   runWifiTests(runner);
 
   std::cout << "jinggua native tests: " << runner.assertions()
