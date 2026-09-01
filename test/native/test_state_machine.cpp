@@ -35,6 +35,7 @@ void runStateMachineTests(TestRunner& runner) {
               jinggua::application::AppState::LineResult);
     EXPECT(runner, stateMachine.isLineAnimationActive());
     EXPECT_EQ(runner, session.lineCount(), index + 1);
+    EXPECT(runner, !stateMachine.sleepAllowed());
 
     // Input arriving during the presentation cannot create or acknowledge a
     // second line.
@@ -44,6 +45,7 @@ void runStateMachineTests(TestRunner& runner) {
 
     stateMachine.finishLineAnimation();
     EXPECT(runner, !stateMachine.isLineAnimationActive());
+    EXPECT(runner, stateMachine.sleepAllowed());
     stateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
     if (index < 5) {
       EXPECT_EQ(runner, stateMachine.state(),
@@ -59,6 +61,7 @@ void runStateMachineTests(TestRunner& runner) {
   stateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
   EXPECT_EQ(runner, stateMachine.state(),
             jinggua::application::AppState::ResetConfirm);
+  EXPECT(runner, !stateMachine.sleepAllowed());
   stateMachine.handleInput(jinggua::application::InputEvent::SecondaryClick);
   EXPECT_EQ(runner, stateMachine.state(),
             jinggua::application::AppState::HexagramResult);

@@ -5,12 +5,15 @@
 
 #include "jinggua/application/divination_session.h"
 #include "jinggua/application/ring_history_store.h"
+#include "jinggua/application/power_hardware.h"
+#include "jinggua/application/power_manager.h"
 #include "jinggua/application/state_machine.h"
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/hardware/imu.h"
 #include "jinggua/hardware/microphone_research.h"
 #include "jinggua/hardware/preferences_slot_storage.h"
+#include "jinggua/hardware/power_controller.h"
 #include "jinggua/hardware/random.h"
 #include "jinggua/hardware/wifi_manager.h"
 #include "jinggua/ui/renderer.h"
@@ -30,7 +33,15 @@ jinggua::application::DivinationSession session(randomProvider);
 jinggua::hardware::Esp32WifiManager wifiManager;
 jinggua::application::StateMachine stateMachine(session, wifiManager,
                                                  &historyStore);
+jinggua::application::PowerManager powerManager;
+jinggua::hardware::StickS3PowerController powerController(display);
 jinggua::ui::Renderer renderer(display);
+
+bool powerStateApplied = false;
+jinggua::application::PowerState appliedPowerState{
+    jinggua::application::PowerState::Active};
+std::uint32_t lastImuPollAt = 0;
+bool hasLastImuPoll = false;
 
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
 jinggua::hardware::StickS3MicrophoneResearch microphoneResearch;
@@ -239,8 +250,32 @@ void pollMicResearchCommand() {
 }
 #endif
 
-void renderIfNeeded() {
-  if (!stateMachine.isDirty() && !renderer.isDirty()) {
+bool applyPowerStateIfNeeded() {
+  const auto nextState = powerManager.state();
+  if (powerStateApplied && appliedPowerState == nextState) {
+    return false;
+  }
+
+  const auto previousState = appliedPowerState;
+  powerController.apply(nextState, powerManager.brightness());
+  if (powerStateApplied) {
+    Serial.print("[Power] ");
+    Serial.print(jinggua::application::powerStateName(previousState));
+    Serial.print(" -> ");
+    Serial.println(jinggua::application::powerStateName(nextState));
+  } else {
+    Serial.print("[Power] initial state=");
+    Serial.println(jinggua::application::powerStateName(nextState));
+  }
+  appliedPowerState = nextState;
+  powerStateApplied = true;
+  // Brightness-only transitions and DisplayOff do not need a render. Active
+  // transitions do, because wake may leave the panel framebuffer stale.
+  return nextState == jinggua::application::PowerState::Active;
+}
+
+void renderIfNeeded(bool force = false) {
+  if (!force && !stateMachine.isDirty() && !renderer.isDirty()) {
     return;
   }
   renderer.render(stateMachine);
@@ -269,6 +304,9 @@ void setup() {
   Serial.println("[Button] init OK");
   imu.begin();
   Serial.println("[IMU] init OK");
+
+  powerManager.begin(static_cast<std::uint32_t>(millis()));
+  applyPowerStateIfNeeded();
 
   const bool historyReady = historyStore.begin();
   Serial.print("[History] init ");
@@ -299,16 +337,27 @@ void loop() {
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   pollMicResearchCommand();
 #endif
-  stateMachine.update(millis());
+  std::uint32_t nowMs = static_cast<std::uint32_t>(millis());
+  stateMachine.update(nowMs);
   const auto previousState = stateMachine.state();
   const auto previousLineCount = stateMachine.session().lineCount();
   const bool animationWasActive = stateMachine.isLineAnimationActive();
   auto event = buttons.poll();
 
+  const auto imuPollIntervalMs = powerManager.imuPollIntervalMs();
+  const bool imuPollDue =
+      powerManager.imuPollingAllowed() &&
+      (!hasLastImuPoll || imuPollIntervalMs == 0U ||
+       nowMs - lastImuPollAt >= imuPollIntervalMs);
   jinggua::hardware::ImuSample sample;
-  const bool hasSample = imu.read(sample);
+  bool hasSample = false;
+  if (imuPollDue) {
+    lastImuPollAt = nowMs;
+    hasLastImuPoll = true;
+    hasSample = imu.read(sample);
+  }
   static std::uint32_t lastImuLogAt = 0;
-  if (hasSample && sample.timestampMs - lastImuLogAt >= 250) {
+  if (hasSample && sample.timestampMs - lastImuLogAt >= 250U) {
     lastImuLogAt = sample.timestampMs;
     Serial.print("[IMU] a=(");
     Serial.print(sample.accelerationX, 2);
@@ -330,7 +379,8 @@ void loop() {
       !animationWasActive &&
       (currentState == jinggua::application::AppState::Casting ||
        (currentState == jinggua::application::AppState::LineResult &&
-        !stateMachine.session().isComplete()));
+        !stateMachine.session().isComplete()) ||
+       powerManager.state() == jinggua::application::PowerState::DisplayOff);
   bool shakeTriggered = false;
   if (hasSample && shakeInputActive) {
     shakeTriggered = shakeDetector.update(sample);
@@ -345,6 +395,8 @@ void loop() {
   if (event != jinggua::application::InputEvent::None) {
     Serial.print("[Input] ");
     Serial.println(jinggua::application::inputEventName(event));
+    // Every delivered event is a user activity. A normal IMU sample is not.
+    (void)powerManager.recordActivity(nowMs);
   }
 
   stateMachine.handleInput(event);
@@ -380,12 +432,38 @@ void loop() {
     }
   }
 
-  const bool animationFinished =
-      renderer.update(stateMachine, static_cast<std::uint32_t>(millis()));
+  nowMs = static_cast<std::uint32_t>(millis());
+  const bool animationFinished = renderer.update(stateMachine, nowMs);
   if (animationFinished) {
     stateMachine.finishLineAnimation();
   }
 
-  renderIfNeeded();
+  nowMs = static_cast<std::uint32_t>(millis());
+  (void)powerManager.update(nowMs, stateMachine.sleepAllowed());
+  bool forceRender = applyPowerStateIfNeeded();
+
+  if (powerManager.lightSleepRequested()) {
+    // The logical state is applied before entering the MCU sleep primitive.
+    forceRender = applyPowerStateIfNeeded() || forceRender;
+    if (powerManager.consumeLightSleepRequest()) {
+      Serial.println("[Power] entering light sleep");
+      const auto wakeReason = powerController.enterLightSleep();
+      const auto wakeAt = static_cast<std::uint32_t>(millis());
+      powerManager.wake(wakeAt);
+      // Light sleep wake is not a new click. Wait for both buttons to be
+      // released so M5Unified cannot replay the wake press as app input.
+      buttons.ignoreUntilReleased();
+      shakeDetector.reset();
+      (void)applyPowerStateIfNeeded();
+      forceRender = true;
+      Serial.print("[Power] wake reason=");
+      Serial.println(jinggua::application::wakeReasonName(wakeReason));
+      Serial.print("[Power] resumed state=");
+      Serial.println(
+          jinggua::application::appStateName(stateMachine.state()));
+    }
+  }
+
+  renderIfNeeded(forceRender);
   delay(20);
 }

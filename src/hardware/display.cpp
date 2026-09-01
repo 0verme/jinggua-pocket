@@ -21,11 +21,42 @@ bool Display::begin() noexcept {
   config.output_power = false;
   M5.begin(config);
   ready_ = true;
+  displayOff_ = false;
   fontReady_ = M5.Display.loadFont(kChineseFontData);
+  M5.Display.setBrightness(brightness_);
 #else
   ready_ = true;
+  displayOff_ = false;
 #endif
   return ready_;
+}
+
+void Display::setBrightness(std::uint8_t brightness) noexcept {
+  brightness_ = brightness;
+#if defined(ARDUINO)
+  if (ready_ && !displayOff_) {
+    M5.Display.setBrightness(brightness_);
+  }
+#endif
+}
+
+void Display::displayOff() noexcept {
+  displayOff_ = true;
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.sleep();
+  }
+#endif
+}
+
+void Display::displayWake() noexcept {
+  displayOff_ = false;
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.wakeup();
+    M5.Display.setBrightness(brightness_);
+  }
+#endif
 }
 
 void Display::clear(Color color) noexcept {

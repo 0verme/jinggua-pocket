@@ -12,6 +12,12 @@ class Display final {
   bool isReady() const noexcept { return ready_; }
   bool isFontReady() const noexcept { return fontReady_; }
 
+  void setBrightness(std::uint8_t brightness) noexcept;
+  void displayOff() noexcept;
+  void displayWake() noexcept;
+  std::uint8_t brightness() const noexcept { return brightness_; }
+  bool isDisplayOff() const noexcept { return displayOff_; }
+
   void clear(Color color) noexcept;
   void drawText(const char* text, int x, int y, Color color,
                 std::uint8_t textSize = 1) noexcept;
@@ -25,8 +31,12 @@ class Display final {
   int height() const noexcept;
 
  private:
+  static constexpr std::uint8_t kDefaultBrightness = 128U;
+
   bool ready_{false};
   bool fontReady_{false};
+  std::uint8_t brightness_{kDefaultBrightness};
+  bool displayOff_{false};
 };
 
 }  // namespace jinggua::hardware

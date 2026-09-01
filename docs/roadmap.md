@@ -21,6 +21,9 @@
 - UI polish
 - **用户触发的离线优先 Wi-Fi 流程（Issue #7）**：设置页显式连接、
   非阻塞异步、15 秒超时、失败/超时不自动重连、用户主动关闭。
+- **自动息屏与低功耗管理（Issue #5）**：`Active → Dim → Display Off →
+  Light Sleep → Wake` 的逻辑与 Button wake request path 已实现；真实设备
+  电流和 wake stability 验证仍为 `PENDING DEVICE VALIDATION`。
 
 ## v0.3 — 用户触发的 Web 联动
 
@@ -64,3 +67,6 @@ StickS3 到手后，按以下顺序推进：
 4. 读取 BMI270 加速度/角速度样本，记录静止与摇动数据。
 5. 校准 threshold/window/cooldown。
 6. 将完整六爻 Button 流程和最小 Shake 流程跑上真机。
+7. 按 [`docs/power-management.md`](power-management.md) 完成 Active、Dim、
+   Display Off、Light Sleep 电流及 10 次 sleep/wake 矩阵。
+8. 确认 Button wake 无伪 click、状态恢复和 IMU idle polling 行为。
