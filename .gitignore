@@ -23,3 +23,9 @@ __pycache__/
 
 # Temporary logs
 *.log
+
+# Microphone research artifacts (never commit captured audio)
+*.wav
+*.raw
+*.pcm
+.hw-validation-tmp/
