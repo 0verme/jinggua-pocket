@@ -20,6 +20,7 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
              ▲                 ▲
              │ ports           │ adapters
    RandomProvider       StickS3 Display/Buttons/IMU
+  WifiController                Esp32WifiManager
 ```
 
 ### Domain
@@ -42,7 +43,10 @@ Phase 0 的目标不是堆功能，而是让六爻核心能在没有 StickS3 的
 - `StickS3Buttons` 将 M5Unified `BtnA/BtnB` 映射到 `InputEvent`。
 - `StickS3Imu` 将 M5Unified `IMU_Class` 数据转换为平台无关的 `ImuSample`。
 - `ShakeDetector` 只处理样本、窗口和 cooldown，不知道应用状态。
-- `Display` 封装 M5GFX 的清屏、文字和线段 primitive。
+- `Esp32WifiManager` 实现 `WifiController` 接口：默认 Off（离线优先），
+  只有用户显式触发才 `WiFi.begin()`；连接由主循环 `update(nowMs)` 非阻塞
+  推进，15 秒超时，失败/超时后不自动重连。凭据只通过构建期环境变量
+  注入，不提交到仓库。
 
 ### UI
 
@@ -82,3 +86,23 @@ StateMachine ── cast ──> DivinationSession
 ```
 
 初始化时没有 Wi-Fi 初始化、网络请求、遥测或用户内容存储路径。
+
+## Wi-Fi（Issue #7 新增）
+
+`application/wifi_controller.h` 定义 `WifiState`（Off/Connecting/Connected/
+Failed/Timeout）与 `WifiController` 接口（ports）；`hardware/wifi_manager.cpp`
+的 `Esp32WifiManager` 是对 ESP32 Arduino `WiFi` 的适配器（adapter）。
+
+离线优先是本模块的硬性边界：
+
+- 开机、进入首页、开始起卦、Shake、Button 起卦、查看本卦/之卦、设备
+  空闲都不会调用 `WiFi.begin()`；启动路径没有自动连接。
+- 连接只能从 `Settings` 页面由用户按 A 显式触发；连接中按 B 取消、
+  已连接按 A 主动关闭，都不存在后台自动重连。
+- 连接是异步的：`enable()` 只发起 `WiFi.begin()`，主循环通过
+  `StateMachine::update(nowMs)` 轮询推进，不阻塞 loop，没有
+  `while (WiFi.status() != WL_CONNECTED) { delay(...) }`。
+
+状态归属：`AppState` 扩展了 `Settings / WifiConnecting / WifiConnected /
+WifiFailed / WifiTimeout`，由 `StateMachine` 处理；`Renderer` 按状态渲染
+最小 UI，见 `docs/state-machine.md`。

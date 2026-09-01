@@ -7,6 +7,7 @@
 #include "jinggua/hardware/imu.h"
 #include "jinggua/hardware/microphone_research.h"
 #include "jinggua/hardware/random.h"
+#include "jinggua/hardware/wifi_manager.h"
 #include "jinggua/ui/renderer.h"
 
 namespace {
@@ -19,7 +20,8 @@ jinggua::hardware::StickS3Imu imu;
 jinggua::hardware::ShakeDetector shakeDetector;
 jinggua::hardware::Esp32RandomProvider randomProvider;
 jinggua::application::DivinationSession session(randomProvider);
-jinggua::application::StateMachine stateMachine(session);
+jinggua::hardware::Esp32WifiManager wifiManager;
+jinggua::application::StateMachine stateMachine(session, wifiManager);
 jinggua::ui::Renderer renderer(display);
 
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
@@ -155,6 +157,7 @@ void loop() {
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   pollMicResearchCommand();
 #endif
+  stateMachine.update(millis());
   const auto previousState = stateMachine.state();
   const auto previousLineCount = stateMachine.session().lineCount();
   auto event = buttons.poll();

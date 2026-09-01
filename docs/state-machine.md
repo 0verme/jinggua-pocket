@@ -10,41 +10,44 @@ BOOT
   │ begin()
   ▼
 WELCOME ── PRIMARY_CLICK ──> PREPARE
-                               │ PRIMARY_CLICK
-                               ▼
-                            CASTING
-                               │ PRIMARY_CLICK / SHAKE
-                               │ cast one line
-                               ▼
-                         LINE_RESULT
-                          │ PRIMARY_CLICK → CASTING (not complete)
-                          │ SHAKE → cast next line (not complete)
-              ┌───────────┴───────────┐
-              │ not complete          │ complete
-              ▼                       ▼
-           CASTING              HEXAGRAM_RESULT
-                                      │ PRIMARY_CLICK
-                         ┌────────────┴────────────┐
-                         │ has moving lines        │ no moving lines
-                         ▼                         ▼
-                  TRANSFORMED_RESULT          RESET_CONFIRM
-                         │ PRIMARY_CLICK          │ PRIMARY_CLICK / LONG_PRESS
-                         ▼                         ▼
-                    RESET_CONFIRM              PREPARE
+  │
+  │ SECONDARY_CLICK
+  ▼
+SETTINGS ── PRIMARY_CLICK ──> WIFI_CONNECTING ── update ──> WIFI_CONNECTED
+  │                              │ update              │ update
+  │ SECONDARY_CLICK              │ update              │
+  ▼                              ▼                     ▼
+WELCOME                    WIFI_FAILED        WIFI_TIMEOUT
+                               │                    │
+                               │ PRIMARY_CLICK      │ PRIMARY_CLICK
+                               │ (retry)            │ (retry)
+                               ▼                    ▼
+                          WIFI_CONNECTING     WIFI_CONNECTING
 ```
 
-`RESET_CONFIRM` 收到 `SECONDARY_CLICK` 会返回进入确认前的结果页，避免误触
-丢掉当前结果。确认重置才调用 `DivinationSession::reset()`。
+SETTINGS: PrimaryClick → 开始连接（WifiController::enable()），SecondaryClick → Welcome。
+WIFI_CONNECTING: SecondaryClick → 取消连接（WifiController::disable()）→ SETTINGS。
+WIFI_CONNECTED: PrimaryClick → 关闭连接（WifiController::disable()）→ SETTINGS。
+WIFI_FAILED: PrimaryClick → 重试 → WIFI_CONNECTING，SecondaryClick → SETTINGS。
+WIFI_TIMEOUT: PrimaryClick → 重试 → WIFI_CONNECTING，SecondaryClick → SETTINGS。
+
+## 输入事件扩展
+
+| Event | 来源 | 新增用途 |
+| --- | --- | --- |
+| `SecondaryClick` | StickS3 `BtnB` | 从 Welcome 进入 Wi-Fi 设置；从 Wi-Fi 状态返回设置 |
+
+Shake 在 Wi-Fi 页面不产生效果；Wi-Fi 连接状态不影响起卦流程。
 
 ## 输入事件
 
-| Event | 来源 | v0.1 用途 |
-| --- | --- | --- |
-| `PrimaryClick` | StickS3 `BtnA` | 页面前进、Button 起一爻 |
-| `SecondaryClick` | StickS3 `BtnB` | 取消重新起卦 |
-| `LongPress` | M5Unified hold | 确认重新起卦 |
-| `Shake` | `ShakeDetector` | Casting 状态起一爻；未完成时在 LineResult 直接进入下一爻 |
-| `None` | 无输入 | 不改变状态 |
+| Event | 来源 | v0.1 用途 | v0.2 新增用途 |
+| --- | --- | --- | --- |
+| `PrimaryClick` | StickS3 `BtnA` | 页面前进、Button 起一爻 | 连接/关闭 Wi-Fi |
+| `SecondaryClick` | StickS3 `BtnB` | 取消重新起卦 | 从 Welcome 进入 Wi-Fi 设置，从 Wi-Fi 页面返回设置 |
+| `LongPress` | M5Unified hold | 确认重新起卦 | — |
+| `Shake` | `ShakeDetector` | Casting 状态起一爻；未完成时在 LineResult 直接进入下一爻 | — |
+| `None` | 无输入 | 不改变状态 | — |
 
 ShakeDetector 默认启用，使用加速度/角速度门限、释放门限、500 ms 检测窗口、
 80 ms 最小峰间隔和 1200 ms cooldown。只在 Casting 或未完成的 LineResult
