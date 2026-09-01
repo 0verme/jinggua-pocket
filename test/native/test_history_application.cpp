@@ -39,6 +39,7 @@ void runHistoryApplicationTests(TestRunner& runner) {
     // Cast six lines (PrimaryClick per line, plus acknowledgement clicks).
     for (std::size_t index = 0; index < 6; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);  // cast
+      stateMachine.finishLineAnimation();
       if (index < 5) {
         stateMachine.handleInput(InputEvent::PrimaryClick);  // ack -> Casting
       }
@@ -66,6 +67,7 @@ void runHistoryApplicationTests(TestRunner& runner) {
     stateMachine.handleInput(InputEvent::PrimaryClick);  // Prepare -> Casting
     for (std::size_t index = 0; index < 6; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);  // cast
+      stateMachine.finishLineAnimation();
       if (index < 5) {
         stateMachine.handleInput(InputEvent::PrimaryClick);  // ack
       }
@@ -99,6 +101,7 @@ void runHistoryApplicationTests(TestRunner& runner) {
     // Only 3 lines.
     for (std::size_t index = 0; index < 3; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);  // cast
+      stateMachine.finishLineAnimation();
       stateMachine.handleInput(InputEvent::PrimaryClick);  // ack -> Casting
     }
     EXPECT(runner, !session.isComplete());

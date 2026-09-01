@@ -102,6 +102,7 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/architecture.md`](docs/architecture.md)
 - [`docs/divination-model.md`](docs/divination-model.md)
 - [`docs/state-machine.md`](docs/state-machine.md)
+- [`docs/coin-animation.md`](docs/coin-animation.md)
 
 ## Development
 

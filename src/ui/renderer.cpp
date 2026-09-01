@@ -7,6 +7,35 @@ namespace jinggua::ui {
 
 Renderer::Renderer(hardware::Display& display) noexcept : display_(display) {}
 
+bool Renderer::update(const application::StateMachine& stateMachine,
+                      std::uint32_t nowMs) noexcept {
+  if (!stateMachine.isLineAnimationActive()) {
+    if (coinAnimation_.state() != CoinAnimationState::Idle) {
+      coinAnimation_.reset();
+    }
+    animationLinePosition_ = 0;
+    return false;
+  }
+
+  const auto* line = stateMachine.session().latestLine();
+  if (line == nullptr) {
+    return false;
+  }
+
+  if (coinAnimation_.state() == CoinAnimationState::Idle ||
+      animationLinePosition_ != line->position) {
+    coinAnimation_.start(line->coins, nowMs);
+    animationLinePosition_ = line->position;
+    animationDirty_ = true;
+  }
+
+  const bool wasFinished = coinAnimation_.isFinished();
+  if (coinAnimation_.update(nowMs)) {
+    animationDirty_ = true;
+  }
+  return !wasFinished && coinAnimation_.isFinished();
+}
+
 void Renderer::render(const application::StateMachine& stateMachine) noexcept {
   switch (stateMachine.state()) {
     case application::AppState::Boot:
@@ -20,7 +49,9 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
       renderCasting(display_, stateMachine.session());
       break;
     case application::AppState::LineResult:
-      renderLineResult(display_, stateMachine.session());
+      renderLineResult(display_, stateMachine.session(),
+                       stateMachine.isLineAnimationActive() ? &coinAnimation_
+                                                             : nullptr);
       break;
     case application::AppState::HexagramResult:
       renderHexagramResult(display_, stateMachine.session());

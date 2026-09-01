@@ -3,6 +3,7 @@
 #include "test_framework.h"
 
 void runCoinTests(TestRunner& runner);
+void runCoinAnimationTests(TestRunner& runner);
 void runDivinationFlowTests(TestRunner& runner);
 void runYaoTests(TestRunner& runner);
 void runHexagramTests(TestRunner& runner);
@@ -20,6 +21,7 @@ void runWifiTests(TestRunner& runner);
 int main() {
   TestRunner runner;
   runCoinTests(runner);
+  runCoinAnimationTests(runner);
   runDivinationFlowTests(runner);
   runYaoTests(runner);
   runHexagramTests(runner);

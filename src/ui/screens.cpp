@@ -3,6 +3,7 @@
 #include <cstddef>
 #include <cstdio>
 
+#include "jinggua/ui/coin_animation.h"
 #include "jinggua/ui/typography.h"
 
 namespace jinggua::ui {
@@ -116,7 +117,8 @@ void renderCasting(
 
 void renderLineResult(
     hardware::Display& display,
-    const application::DivinationSession& session) noexcept {
+    const application::DivinationSession& session,
+    const CoinAnimation* animation) noexcept {
   clearScreen(display);
   drawTitle(display, "一爻");
   const auto* line = session.latestLine();
@@ -129,17 +131,24 @@ void renderLineResult(
   std::snprintf(progress, sizeof(progress), "第 %u 爻", line->position);
   display.drawText(progress, kMargin, 32, kIvory, typography::kResult);
 
-  char coins[48]{};
-  std::snprintf(coins, sizeof(coins), "%s %s %s",
-                coinSymbol(line->coins.coins[0]),
-                coinSymbol(line->coins.coins[1]),
-                coinSymbol(line->coins.coins[2]));
-  display.drawText(coins, kMargin, 64, kCopper, typography::kResult);
+  int typeY = 96;
+  if (animation != nullptr && animation->isActive()) {
+    const int centerY = display.height() >= 180 ? 94 : 70;
+    drawCoinAnimation(display, *animation, centerY);
+    typeY = display.height() >= 180 ? 132 : 100;
+  } else {
+    char coins[48]{};
+    std::snprintf(coins, sizeof(coins), "%s %s %s",
+                  coinSymbol(line->coins.coins[0]),
+                  coinSymbol(line->coins.coins[1]),
+                  coinSymbol(line->coins.coins[2]));
+    display.drawText(coins, kMargin, 64, kCopper, typography::kResult);
+  }
 
   char type[48]{};
   std::snprintf(type, sizeof(type), "%s · %u%s", domain::yaoTypeName(line->type),
                 line->coins.total, line->moving ? " · 动" : "");
-  display.drawText(type, kMargin, 96, kIvory, typography::kBody);
+  display.drawText(type, kMargin, typeY, kIvory, typography::kBody);
   drawFooter(display, session.isComplete() ? "A 查看本卦" : "A 继续");
 }
 

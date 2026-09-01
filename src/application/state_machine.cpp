@@ -56,7 +56,7 @@ void StateMachine::begin() noexcept {
 }
 
 void StateMachine::handleInput(InputEvent event) noexcept {
-  if (event == InputEvent::None) {
+  if (event == InputEvent::None || lineAnimationActive_) {
     return;
   }
 
@@ -189,8 +189,17 @@ void StateMachine::update(std::uint32_t nowMs) noexcept {
   }
 }
 
+void StateMachine::finishLineAnimation() noexcept {
+  if (!lineAnimationActive_) {
+    return;
+  }
+  lineAnimationActive_ = false;
+  dirty_ = true;
+}
+
 void StateMachine::castLine() noexcept {
   if (session_.castLine()) {
+    lineAnimationActive_ = true;
     persistIfComplete();
     transitionTo(AppState::LineResult);
     // The state does not change when Shake advances from one result to the

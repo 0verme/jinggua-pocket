@@ -16,6 +16,10 @@ class Display final {
   void drawText(const char* text, int x, int y, Color color,
                 std::uint8_t textSize = 1) noexcept;
   void drawLine(int x0, int y0, int x1, int y1, Color color) noexcept;
+  void drawEllipse(int centerX, int centerY, int radiusX, int radiusY,
+                   Color color) noexcept;
+  void fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
+                   Color color) noexcept;
 
   int width() const noexcept;
   int height() const noexcept;

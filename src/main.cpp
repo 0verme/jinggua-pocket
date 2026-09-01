@@ -240,11 +240,12 @@ void pollMicResearchCommand() {
 #endif
 
 void renderIfNeeded() {
-  if (!stateMachine.isDirty()) {
+  if (!stateMachine.isDirty() && !renderer.isDirty()) {
     return;
   }
   renderer.render(stateMachine);
   stateMachine.acknowledgeRender();
+  renderer.acknowledgeRender();
 }
 
 }  // namespace
@@ -301,6 +302,7 @@ void loop() {
   stateMachine.update(millis());
   const auto previousState = stateMachine.state();
   const auto previousLineCount = stateMachine.session().lineCount();
+  const bool animationWasActive = stateMachine.isLineAnimationActive();
   auto event = buttons.poll();
 
   jinggua::hardware::ImuSample sample;
@@ -325,13 +327,14 @@ void loop() {
 
   const auto currentState = stateMachine.state();
   const bool shakeInputActive =
-      currentState == jinggua::application::AppState::Casting ||
-      (currentState == jinggua::application::AppState::LineResult &&
-       !stateMachine.session().isComplete());
+      !animationWasActive &&
+      (currentState == jinggua::application::AppState::Casting ||
+       (currentState == jinggua::application::AppState::LineResult &&
+        !stateMachine.session().isComplete()));
   bool shakeTriggered = false;
   if (hasSample && shakeInputActive) {
     shakeTriggered = shakeDetector.update(sample);
-  } else if (!shakeInputActive) {
+  } else if (!animationWasActive && !shakeInputActive) {
     shakeDetector.reset();
   }
   if (event == jinggua::application::InputEvent::None && shakeTriggered) {
@@ -346,9 +349,11 @@ void loop() {
 
   stateMachine.handleInput(event);
   if (event != jinggua::application::InputEvent::None &&
-      event != jinggua::application::InputEvent::Shake) {
+      event != jinggua::application::InputEvent::Shake &&
+      !animationWasActive) {
     // A button action starts a new input gesture; do not let a partial IMU
-    // candidate survive across the Button fallback path.
+    // candidate survive across the Button fallback path. Button input during
+    // the coin animation is ignored without clearing the shake cooldown.
     shakeDetector.reset();
   }
   if (stateMachine.state() != previousState) {
@@ -373,6 +378,12 @@ void loop() {
       Serial.print("[Yao] ");
       Serial.println(jinggua::domain::yaoTypeName(line->type));
     }
+  }
+
+  const bool animationFinished =
+      renderer.update(stateMachine, static_cast<std::uint32_t>(millis()));
+  if (animationFinished) {
+    stateMachine.finishLineAnimation();
   }
 
   renderIfNeeded();

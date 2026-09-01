@@ -43,9 +43,11 @@ class StateMachine final {
 
   void begin() noexcept;
   void handleInput(InputEvent event) noexcept;
+  void finishLineAnimation() noexcept;
   void update(std::uint32_t nowMs) noexcept;
 
   AppState state() const noexcept { return state_; }
+  bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   const DivinationSession& session() const noexcept { return session_; }
   const WifiController& wifi() const noexcept { return *wifi_; }
   bool isDirty() const noexcept { return dirty_; }
@@ -72,6 +74,7 @@ class StateMachine final {
   WifiController* wifi_{nullptr};
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
+  bool lineAnimationActive_{false};
   std::size_t historyCursor_{0};
   bool dirty_{true};
 };

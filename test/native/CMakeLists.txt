@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(jinggua_native_tests
   test_coin.cpp
+  test_coin_animation.cpp
   test_divination_flow.cpp
   test_hexagram.cpp
   test_history_application.cpp
@@ -46,6 +47,7 @@ add_executable(jinggua_native_tests
   ../../src/hardware/wifi_manager.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp
+  ../../src/ui/coin_animation.cpp
 )
 
 target_include_directories(jinggua_native_tests PRIVATE

@@ -36,6 +36,7 @@ void runWifiTests(TestRunner& runner) {
     stateMachine.handleInput(InputEvent::PrimaryClick);  // -> Casting
     for (std::size_t index = 0; index < 6; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);  // cast line
+      stateMachine.finishLineAnimation();
       stateMachine.handleInput(InputEvent::PrimaryClick);  // advance
     }
     EXPECT(runner, session.isComplete());
@@ -92,6 +93,7 @@ void runWifiTests(TestRunner& runner) {
     stateMachine.handleInput(InputEvent::PrimaryClick);    // -> Casting
     for (std::size_t index = 0; index < 6; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);
+      stateMachine.finishLineAnimation();
       stateMachine.handleInput(InputEvent::PrimaryClick);
     }
     EXPECT(runner, session.isComplete());
@@ -194,6 +196,7 @@ void runWifiTests(TestRunner& runner) {
     wifi.setState(WifiState::Connected);                   // Wi-Fi "on" meanwhile
     for (std::size_t index = 0; index < 6; ++index) {
       stateMachine.handleInput(InputEvent::PrimaryClick);  // cast line
+      stateMachine.finishLineAnimation();
       stateMachine.handleInput(InputEvent::PrimaryClick);  // advance
     }
     EXPECT(runner, session.isComplete());
