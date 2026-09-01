@@ -11,6 +11,7 @@ void runHexagramTests(TestRunner& runner);
 void runImuTests(TestRunner& runner);
 void runMicrophoneResearchTests(TestRunner& runner);
 void runTransformTests(TestRunner& runner);
+void runUiLayoutTests(TestRunner& runner);
 void runOrderingTests(TestRunner& runner);
 void runStateMachineTests(TestRunner& runner);
 void runHistoryRecordTests(TestRunner& runner);
@@ -30,6 +31,7 @@ int main() {
   runImuTests(runner);
   runMicrophoneResearchTests(runner);
   runTransformTests(runner);
+  runUiLayoutTests(runner);
   runOrderingTests(runner);
   runStateMachineTests(runner);
   runHistoryRecordTests(runner);
