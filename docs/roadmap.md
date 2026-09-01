@@ -19,10 +19,12 @@
 - 轻量铜钱翻转动画
 - 音效（在明确 scope 后）
 - UI polish
+- **用户触发的离线优先 Wi-Fi 流程（Issue #7）**：设置页显式连接、
+  非阻塞异步、15 秒超时、失败/超时不自动重连、用户主动关闭。
 
 ## v0.3 — 用户触发的 Web 联动
 
-- Wi-Fi
+- Wi-Fi credential provisioning（BLE / 二维码 / Web 配网）
 - `jinggua` API
 - 设备绑定
 - 二维码

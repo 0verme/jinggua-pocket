@@ -12,8 +12,9 @@ void runStateMachineTests(TestRunner& runner) {
     sequence.push_back(jinggua::domain::CoinSide::Back);
   }
   SequenceRandomProvider random(std::move(sequence));
+  FakeWifiController wifi;
   jinggua::application::DivinationSession session(random);
-  jinggua::application::StateMachine stateMachine(session);
+  jinggua::application::StateMachine stateMachine(session, wifi);
 
   EXPECT_EQ(runner, stateMachine.state(),
             jinggua::application::AppState::Boot);
@@ -77,8 +78,9 @@ void runStateMachineTests(TestRunner& runner) {
     shakeSequence.push_back(jinggua::domain::CoinSide::Back);
   }
   SequenceRandomProvider shakeRandom(std::move(shakeSequence));
+  FakeWifiController shakeWifi;
   jinggua::application::DivinationSession shakeSession(shakeRandom);
-  jinggua::application::StateMachine shakeStateMachine(shakeSession);
+  jinggua::application::StateMachine shakeStateMachine(shakeSession, shakeWifi);
   shakeStateMachine.begin();
   shakeStateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);
   shakeStateMachine.handleInput(jinggua::application::InputEvent::PrimaryClick);

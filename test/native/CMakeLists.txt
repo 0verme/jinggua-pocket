@@ -11,21 +11,30 @@ add_executable(jinggua_native_tests
   test_coin_animation.cpp
   test_divination_flow.cpp
   test_hexagram.cpp
+  test_history_application.cpp
+  test_history_index.cpp
+  test_history_record.cpp
   test_imu.cpp
   test_main.cpp
   test_microphone_research.cpp
   test_ordering.cpp
+  test_ring_history_store.cpp
   test_state_machine.cpp
+  test_wifi.cpp
   test_transform.cpp
   test_yao.cpp
   ../../src/application/divination_session.cpp
   ../../src/application/input_event.cpp
+  ../../src/application/ring_history_store.cpp
   ../../src/application/state_machine.cpp
+  ../../src/application/wifi_controller.cpp
   ../../src/data/hexagrams.cpp
+  ../../src/data/history_index.cpp
   ../../src/data/trigrams.cpp
   ../../src/domain/coin.cpp
   ../../src/domain/divination.cpp
   ../../src/domain/hexagram.cpp
+  ../../src/domain/history_record.cpp
   ../../src/domain/trigram.cpp
   ../../src/domain/yao.cpp
   ../../src/hardware/buttons.cpp
@@ -34,6 +43,8 @@ add_executable(jinggua_native_tests
   ../../src/hardware/imu.cpp
   ../../src/hardware/microphone_research.cpp
   ../../src/hardware/random.cpp
+  ../../src/ui/history_screen.cpp
+  ../../src/hardware/wifi_manager.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp
   ../../src/ui/coin_animation.cpp

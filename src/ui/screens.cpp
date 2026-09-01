@@ -89,7 +89,7 @@ void renderWelcome(hardware::Display& display) noexcept {
   display.drawText("JINGGUA POCKET", kMargin, 45, kIvory,
                    typography::kAuxiliary);
   display.drawText("安静地问一问", kMargin, 62, kIvory, typography::kResult);
-  drawFooter(display, "A 开始");
+  drawFooter(display, "A 开始 · B Wi-Fi");
 }
 
 void renderPrepare(hardware::Display& display) noexcept {
@@ -205,6 +205,65 @@ void renderResetConfirm(hardware::Display& display) noexcept {
   display.drawText("要从头开始吗？", kMargin, 37, kIvory, typography::kResult);
   display.drawText("A 确认", kMargin, 75, kCopper, typography::kBody);
   display.drawText("B 返回结果", kMargin, 93, kMuted, typography::kAuxiliary);
+}
+
+void renderWifiSettings(hardware::Display& display,
+                        const application::WifiController& wifi) noexcept {
+  clearScreen(display);
+  drawTitle(display, "Wi-Fi");
+  const char* status = nullptr;
+  switch (wifi.state()) {
+    case application::WifiState::Off:
+      status = "关闭";
+      break;
+    case application::WifiState::Connected:
+      status = "已连接";
+      break;
+    default:
+      status = "未知";
+      break;
+  }
+  char stateLine[32]{};
+  std::snprintf(stateLine, sizeof(stateLine), "状态：%s", status);
+  display.drawText(stateLine, kMargin, 34, kIvory, typography::kResult);
+  if (wifi.state() == application::WifiState::Connected) {
+    display.drawText(wifi.ssid(), kMargin, 62, kMuted, typography::kBody);
+  } else if (!wifi.configured()) {
+    display.drawText("未配置网络", kMargin, 62, kMuted, typography::kBody);
+  }
+  drawFooter(display, "A 连接 · B 返回");
+}
+
+void renderWifiConnecting(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "Wi-Fi");
+  display.drawText("连接中…", kMargin, 40, kIvory, typography::kResult);
+  drawFooter(display, "B 取消");
+}
+
+void renderWifiConnected(hardware::Display& display,
+                         const application::WifiController& wifi) noexcept {
+  clearScreen(display);
+  drawTitle(display, "Wi-Fi");
+  display.drawText("连接成功", kMargin, 30, kIvory, typography::kResult);
+  display.drawText(wifi.ssid(), kMargin, 60, kMuted, typography::kBody);
+  drawFooter(display, "A 关闭 Wi-Fi");
+}
+
+void renderWifiFailed(hardware::Display& display,
+                      const application::WifiController& wifi) noexcept {
+  clearScreen(display);
+  drawTitle(display, "Wi-Fi");
+  display.drawText(wifi.configured() ? "连接失败" : "未配置 Wi-Fi", kMargin, 34,
+                   kIvory, typography::kResult);
+  drawFooter(display, "A 重试 · B 返回");
+}
+
+void renderWifiTimeout(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "Wi-Fi");
+  display.drawText("连接超时", kMargin, 34, kIvory, typography::kResult);
+  drawFooter(display, "A 重试 · B 返回");
 }
 
 }  // namespace jinggua::ui
