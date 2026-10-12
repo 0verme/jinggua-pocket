@@ -25,6 +25,7 @@ namespace jinggua::hardware {
 //   - keys "rec_000".."rec_063": one serialized HistoryRecord each
 class PreferencesSlotStorage final : public application::SlotStorage {
  public:
+  bool begin() noexcept override;
   std::size_t capacity() const noexcept override;
 
   bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
@@ -38,6 +39,8 @@ class PreferencesSlotStorage final : public application::SlotStorage {
   bool writeIndex(const std::uint8_t* data, std::size_t size) noexcept override;
 
  private:
+  bool started_{false};
+
   void makeSlotKey(char* buffer, std::size_t slot) const noexcept;
 };
 

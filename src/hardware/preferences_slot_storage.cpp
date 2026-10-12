@@ -30,6 +30,18 @@ void makeSlotKeyInternal(char* buffer, std::size_t slot) noexcept {
 
 }  // namespace
 
+bool PreferencesSlotStorage::begin() noexcept {
+#if defined(ARDUINO)
+  if (started_) {
+    return true;
+  }
+  started_ = preferences().begin(kNamespace, false);
+  return started_;
+#else
+  return false;
+#endif
+}
+
 std::size_t PreferencesSlotStorage::capacity() const noexcept {
   return application::kHistoryCapacity;
 }
@@ -43,6 +55,9 @@ bool PreferencesSlotStorage::readRecord(std::size_t slot, std::uint8_t* data,
                                         std::size_t capacity,
                                         std::size_t& sizeOut) const noexcept {
 #if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
   char key[8];
   makeSlotKey(key, slot);
   auto& prefs = preferences();
@@ -69,6 +84,9 @@ bool PreferencesSlotStorage::writeRecord(std::size_t slot,
                                          const std::uint8_t* data,
                                          std::size_t size) noexcept {
 #if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
   char key[8];
   makeSlotKey(key, slot);
   auto& prefs = preferences();
@@ -83,11 +101,13 @@ bool PreferencesSlotStorage::writeRecord(std::size_t slot,
 
 bool PreferencesSlotStorage::eraseRecord(std::size_t slot) noexcept {
 #if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
   char key[8];
   makeSlotKey(key, slot);
   auto& prefs = preferences();
-  prefs.remove(key);
-  return true;
+  return !prefs.isKey(key) || prefs.remove(key);
 #else
   (void)slot;
   return false;
@@ -98,6 +118,9 @@ bool PreferencesSlotStorage::readIndex(std::uint8_t* data,
                                        std::size_t capacity,
                                        std::size_t& sizeOut) const noexcept {
 #if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
   auto& prefs = preferences();
   const std::size_t stored = prefs.getBytesLength(kIndexKey);
   if (stored == 0) {
@@ -120,6 +143,9 @@ bool PreferencesSlotStorage::readIndex(std::uint8_t* data,
 bool PreferencesSlotStorage::writeIndex(const std::uint8_t* data,
                                         std::size_t size) noexcept {
 #if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
   auto& prefs = preferences();
   return prefs.putBytes(kIndexKey, data, size) == size;
 #else

@@ -19,6 +19,10 @@ class SlotStorage {
   // Number of record slots the backend can hold.
   virtual std::size_t capacity() const noexcept = 0;
 
+  // Initialize the backend before accessing records. In-memory storage is
+  // ready by construction; persistent adapters override this method.
+  virtual bool begin() noexcept { return true; }
+
   // Reads the record blob at `slot`. Returns false when the slot is empty,
   // unreadable, or the buffer is too small. On success `sizeOut` receives
   // the number of bytes read.

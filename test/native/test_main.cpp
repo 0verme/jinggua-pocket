@@ -3,6 +3,7 @@
 #include "test_framework.h"
 
 void runAudioFeedbackTests(TestRunner& runner);
+void runBootDiagnosticsTests(TestRunner& runner);
 void runCoinTests(TestRunner& runner);
 void runCoinAnimationTests(TestRunner& runner);
 void runDivinationFlowTests(TestRunner& runner);
@@ -27,6 +28,7 @@ void runOtaTests(TestRunner& runner);
 int main() {
   TestRunner runner;
   runAudioFeedbackTests(runner);
+  runBootDiagnosticsTests(runner);
   runCoinTests(runner);
   runCoinAnimationTests(runner);
   runDivinationFlowTests(runner);

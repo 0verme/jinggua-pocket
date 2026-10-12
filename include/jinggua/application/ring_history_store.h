@@ -16,9 +16,9 @@ namespace jinggua::application {
 //
 // The ring uses physical slots 0..capacity-1 on the storage backend. A
 // persistent index (HistoryIndex) records head, count, and identity
-// counters. On begin() the index is loaded and validated; if the index is
-// unreadable the store falls back to a full slot scan, collecting valid
-// records sorted by sessionOrder.
+// counters. On begin() the index and its referenced records are validated;
+// missing, corrupt, stale, or inconsistent metadata triggers a full slot scan,
+// collecting valid records sorted by sessionOrder.
 //
 // Corrupted records (CRC mismatch) are silently skipped during get().
 // A corrupted index triggers a full rebuild that preserves every valid
@@ -49,6 +49,7 @@ class RingHistoryStore final : public HistoryStore {
   // successfully loaded and validated; false when it is missing, corrupt,
   // or unreadable (caller should run rebuildFromSlots instead).
   bool loadIndex() noexcept;
+  bool activeIndexMatchesRecords() const noexcept;
 
   // Full rebuild: scan all slots, collect valid records, sort by
   // (sessionOrder, localRecordId), reconstruct head/count/nextIds.

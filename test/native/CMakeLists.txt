@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(jinggua_native_tests
   test_audio_feedback.cpp
+  test_boot_diagnostics.cpp
   test_coin.cpp
   test_coin_animation.cpp
   test_divination_flow.cpp
@@ -46,6 +47,7 @@ add_executable(jinggua_native_tests
   ../../src/domain/trigram.cpp
   ../../src/domain/yao.cpp
   ../../src/hardware/audio_feedback.cpp
+  ../../src/hardware/boot_diagnostics.cpp
   ../../src/hardware/buttons.cpp
   ../../src/hardware/display.cpp
   ../../src/hardware/font_data.cpp

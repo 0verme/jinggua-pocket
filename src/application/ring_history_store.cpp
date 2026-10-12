@@ -46,6 +46,42 @@ bool RingHistoryStore::loadIndex() noexcept {
   return true;
 }
 
+bool RingHistoryStore::activeIndexMatchesRecords() const noexcept {
+  const auto capacity = storage_.capacity();
+  if (capacity == 0 || capacity > 64U || index_.count > capacity ||
+      index_.head >= capacity) {
+    return false;
+  }
+
+  domain::HistoryRecord previous{};
+  bool hasPrevious = false;
+  for (std::size_t logical = 0; logical < index_.count; ++logical) {
+    domain::HistoryRecord current{};
+    if (validateSlot(physicalSlot(logical), current) !=
+        domain::HistoryLoadStatus::Ok) {
+      return false;
+    }
+    if (hasPrevious &&
+        (current.sessionOrder < previous.sessionOrder ||
+         (current.sessionOrder == previous.sessionOrder &&
+          current.localRecordId < previous.localRecordId))) {
+      return false;
+    }
+    previous = current;
+    hasPrevious = true;
+  }
+
+  std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
+  for (std::size_t logical = index_.count; logical < capacity; ++logical) {
+    std::size_t size = 0;
+    if (storage_.readRecord(physicalSlot(logical), blob.data(), blob.size(),
+                            size)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 bool RingHistoryStore::persistIndex() noexcept {
   std::array<std::uint8_t, data::kHistoryIndexSerializedSize> blob{};
   const auto size = data::serializeHistoryIndex(index_, blob.data(),
@@ -81,6 +117,12 @@ domain::HistoryLoadStatus RingHistoryStore::validateSlot(
 // Recovery
 // ---------------------------------------------------------------------------
 bool RingHistoryStore::rebuildFromSlots() noexcept {
+  // Keep the recovery buffer bounded even if a future backend exposes more
+  // slots than the firmware's fixed history capacity.
+  if (storage_.capacity() > 64U) {
+    return false;
+  }
+
   // Scan every slot, collecting valid records.
   std::array<domain::HistoryRecord, 64> found{};
   std::size_t foundCount = 0;
@@ -121,7 +163,9 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
     std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
     const auto size =
         domain::serializeHistoryRecord(found[i], blob.data(), blob.size());
-      storage_.writeRecord(i, blob.data(), size);
+    if (!storage_.writeRecord(i, blob.data(), size)) {
+      return false;
+    }
 
     if (found[i].localRecordId >= rebuilt.nextLocalRecordId) {
       rebuilt.nextLocalRecordId = found[i].localRecordId + 1;
@@ -133,15 +177,14 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
 
   // Clear the remainder of the slot space.
   for (std::size_t slot = foundCount; slot < storage_.capacity(); ++slot) {
-    storage_.eraseRecord(slot);
+    if (!storage_.eraseRecord(slot)) {
+      return false;
+    }
   }
 
   index_ = rebuilt;
   if (!persistIndex()) {
-    // Index write failed; keep in-memory state consistent anyway so the
-    // device can continue casting this session.
-    healthy_ = true;
-    return true;
+    return false;
   }
   healthy_ = true;
   return true;
@@ -153,20 +196,23 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
 bool RingHistoryStore::begin() noexcept {
   healthy_ = false;
   index_ = data::HistoryIndex{};
+  if (!storage_.begin()) {
+    return false;
+  }
 
-  if (loadIndex()) {
+  if (loadIndex() && activeIndexMatchesRecords()) {
     healthy_ = true;
     return true;
   }
 
-  // Index missing or corrupt → try a full scan rebuild. A fresh device has
+  // Missing, corrupt, stale, or inconsistent index → full scan rebuild. A fresh device has
   // no records, so rebuild finds nothing and healthy_ becomes true with an
   // empty store.
   return rebuildFromSlots();
 }
 
 bool RingHistoryStore::add(domain::HistoryRecord& record) noexcept {
-  if (storage_.capacity() == 0) {
+  if (!healthy_ || storage_.capacity() == 0) {
     return false;
   }
 
@@ -208,7 +254,7 @@ std::size_t RingHistoryStore::count() const noexcept { return index_.count; }
 
 bool RingHistoryStore::get(std::size_t index,
                            domain::HistoryRecord& out) const noexcept {
-  if (index >= index_.count) {
+  if (!healthy_ || index >= index_.count) {
     return false;
   }
   const auto slot = physicalSlot(index);
@@ -222,6 +268,9 @@ bool RingHistoryStore::get(std::size_t index,
 }
 
 void RingHistoryStore::clear() noexcept {
+  if (!healthy_) {
+    return;
+  }
   for (std::size_t slot = 0; slot < storage_.capacity(); ++slot) {
     storage_.eraseRecord(slot);
   }

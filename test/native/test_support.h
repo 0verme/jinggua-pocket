@@ -74,6 +74,12 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
 
   std::size_t capacity() const noexcept override { return records_.size(); }
 
+  bool begin() noexcept override { return beginResult_; }
+
+  void setBeginResult(bool result) noexcept { beginResult_ = result; }
+  void failNextRecordWrite() noexcept { failNextRecordWrite_ = true; }
+  void failNextIndexWrite() noexcept { failNextIndexWrite_ = true; }
+
   bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
                   std::size_t& sizeOut) const noexcept override {
     if (slot >= records_.size() || sizes_[slot] == 0) {
@@ -89,6 +95,10 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
 
   bool writeRecord(std::size_t slot, const std::uint8_t* data,
                    std::size_t size) noexcept override {
+    if (failNextRecordWrite_) {
+      failNextRecordWrite_ = false;
+      return false;
+    }
     if (slot >= records_.size() || size > records_[slot].size()) {
       return false;
     }
@@ -116,6 +126,10 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   }
 
   bool writeIndex(const std::uint8_t* data, std::size_t size) noexcept override {
+    if (failNextIndexWrite_) {
+      failNextIndexWrite_ = false;
+      return false;
+    }
     if (size > index_.size()) {
       return false;
     }
@@ -168,6 +182,9 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   std::vector<std::size_t> sizes_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
+  bool beginResult_{true};
+  bool failNextRecordWrite_{false};
+  bool failNextIndexWrite_{false};
 };
 
 // Fake AudioController for StateMachine tests. It models the hardware

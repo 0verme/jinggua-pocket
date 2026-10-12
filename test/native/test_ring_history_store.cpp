@@ -43,6 +43,20 @@ void runRingHistoryStoreTests(TestRunner& runner) {
   }
 
   // -----------------------------------------------------------------------
+  // Storage initialization failure is fail-closed and cannot accept writes.
+  // -----------------------------------------------------------------------
+  {
+    InMemorySlotStorage storage(4);
+    storage.setBeginResult(false);
+    RingHistoryStore store(storage);
+    EXPECT(runner, !store.begin());
+    EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
+    HistoryRecord record = makeSimpleRecord(0, 1, 7);
+    EXPECT(runner, !store.add(record));
+    EXPECT(runner, !store.get(0, record));
+  }
+
+  // -----------------------------------------------------------------------
   // Add one record → count=1, get(0) matches, nextLocalRecordId advances.
   // -----------------------------------------------------------------------
   {
@@ -187,6 +201,85 @@ void runRingHistoryStoreTests(TestRunner& runner) {
       // nextLocalRecordId should continue from max+1 = 4.
       EXPECT_EQ(runner, store.nextLocalRecordId(),
                 static_cast<std::uint32_t>(4));
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // A record whose index commit failed is detected and recovered at next boot.
+  // -----------------------------------------------------------------------
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      storage.failNextIndexWrite();
+      auto rec = makeSimpleRecord(0, 1, 7);
+      EXPECT(runner, store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(1));
+      HistoryRecord loaded;
+      EXPECT(runner, store.get(0, loaded));
+      EXPECT_EQ(runner, loaded.originalNumber, static_cast<std::uint8_t>(1));
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Recovery write failures are reported; a later boot can retry recovery.
+  // -----------------------------------------------------------------------
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failNextRecordWrite();
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+      auto rec = makeSimpleRecord(0, 3, 7);
+      EXPECT(runner, !store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
+      HistoryRecord loaded;
+      EXPECT(runner, store.get(0, loaded));
+      EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(1));
+      EXPECT(runner, store.get(1, loaded));
+      EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(2));
+    }
+  }
+
+  // Index persistence failure is also reported and retried from intact slots.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failNextIndexWrite();
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
     }
   }
 
