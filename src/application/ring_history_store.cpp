@@ -144,7 +144,7 @@ bool RingHistoryStore::activeIndexMatchesRecords() const noexcept {
   for (std::size_t logical = 0; logical < index_.count; ++logical) {
     domain::HistoryRecord current{};
     if (validateSlot(physicalSlot(logical), current) !=
-        domain::HistoryLoadStatus::Ok) {
+        SlotValidationResult::Valid) {
       return false;
     }
     if (hasPrevious &&
@@ -161,7 +161,7 @@ bool RingHistoryStore::activeIndexMatchesRecords() const noexcept {
   for (std::size_t logical = index_.count; logical < capacity; ++logical) {
     std::size_t size = 0;
     if (storage_.readRecord(physicalSlot(logical), blob.data(), blob.size(),
-                            size)) {
+                            size) != RecordReadResult::Missing) {
       return false;
     }
   }
@@ -178,25 +178,30 @@ bool RingHistoryStore::persistIndex() noexcept {
 // ---------------------------------------------------------------------------
 // Slot validation
 // ---------------------------------------------------------------------------
-domain::HistoryLoadStatus RingHistoryStore::validateSlot(
+RingHistoryStore::SlotValidationResult RingHistoryStore::validateSlot(
     std::size_t slot, domain::HistoryRecord& out) const noexcept {
   std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
   std::size_t size = 0;
-  if (!storage_.readRecord(slot, blob.data(), blob.size(), size)) {
-    return domain::HistoryLoadStatus::TooShort;  // empty/unreadable slot
+  const auto readResult =
+      storage_.readRecord(slot, blob.data(), blob.size(), size);
+  if (readResult == RecordReadResult::Missing) {
+    return SlotValidationResult::Missing;
   }
+  if (readResult == RecordReadResult::Error) {
+    return SlotValidationResult::Error;
+  }
+
   auto status = domain::loadHistoryRecord(blob.data(), size, out);
   if (status != domain::HistoryLoadStatus::Ok) {
-    return status;
+    return SlotValidationResult::Corrupt;
   }
   // Migrate older schemas in memory. The upgraded bytes are only persisted
   // lazily, when this slot is next overwritten by add().
-  if (out.schemaVersion < domain::kHistorySchemaVersion) {
-    if (!domain::migrateHistoryRecord(out)) {
-      return domain::HistoryLoadStatus::UnsupportedSchema;
-    }
+  if (out.schemaVersion < domain::kHistorySchemaVersion &&
+      !domain::migrateHistoryRecord(out)) {
+    return SlotValidationResult::Corrupt;
   }
-  return domain::HistoryLoadStatus::Ok;
+  return SlotValidationResult::Valid;
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +280,11 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
   std::size_t foundCount = 0;
   for (std::size_t slot = 0; slot < storage_.capacity(); ++slot) {
     domain::HistoryRecord record;
-    if (validateSlot(slot, record) == domain::HistoryLoadStatus::Ok) {
+    const auto status = validateSlot(slot, record);
+    if (status == SlotValidationResult::Error) {
+      return false;
+    }
+    if (status == SlotValidationResult::Valid) {
       found[foundCount++] = record;
     }
   }
@@ -327,9 +336,13 @@ bool RingHistoryStore::begin() noexcept {
 
   bool journalHandled = false;
   if (!resumePendingRecoveryJournal(journalHandled)) {
+    index_ = data::HistoryIndex{};
     return false;
   }
   if (journalHandled) {
+    if (!healthy_) {
+      index_ = data::HistoryIndex{};
+    }
     return healthy_;
   }
 
@@ -340,7 +353,11 @@ bool RingHistoryStore::begin() noexcept {
 
   // Missing, corrupt, stale, or inconsistent index → stage and replay a full
   // scan rebuild. A fresh device gets an empty, valid index.
-  return rebuildFromSlots();
+  if (!rebuildFromSlots()) {
+    index_ = data::HistoryIndex{};
+    return false;
+  }
+  return true;
 }
 
 bool RingHistoryStore::add(domain::HistoryRecord& record) noexcept {
@@ -391,24 +408,37 @@ bool RingHistoryStore::get(std::size_t index,
   }
   const auto slot = physicalSlot(index);
   const auto status = validateSlot(slot, out);
-  if (status != domain::HistoryLoadStatus::Ok) {
-    // A corrupted record reads back as missing; skip it without disturbing
-    // the rest of the history.
+  if (status != SlotValidationResult::Valid) {
+    // Invalid or unavailable slot data cannot be returned to the caller.
     return false;
   }
   return true;
 }
 
-void RingHistoryStore::clear() noexcept {
+bool RingHistoryStore::clear() noexcept {
   if (!healthy_) {
-    return;
+    return false;
   }
-  for (std::size_t slot = 0; slot < storage_.capacity(); ++slot) {
-    storage_.eraseRecord(slot);
+
+  std::array<domain::HistoryRecord, 64> emptyRecords{};
+  std::array<std::uint8_t, kRecoveryJournalMaxSize> journal{};
+  const auto journalSize = serializeRecoveryJournal(
+      emptyRecords, 0, journal.data(), journal.size());
+  if (journalSize == 0 ||
+      !storage_.writeRecoveryJournal(journal.data(), journalSize)) {
+    // A failed/ambiguous NVS commit must not allow additional writes until the
+    // pending transaction state has been checked again by begin().
+    index_ = data::HistoryIndex{};
+    healthy_ = false;
+    return false;
   }
+
+  // Persist the clear intent before erasing any slot. If an erase or index
+  // write fails, begin() will replay this zero-record journal instead of
+  // reconstructing the old records as orphans.
   index_ = data::HistoryIndex{};
-  persistIndex();
-  healthy_ = true;
+  healthy_ = false;
+  return applyRecoveryJournal(emptyRecords, 0);
 }
 
 std::uint32_t RingHistoryStore::nextLocalRecordId() const noexcept {

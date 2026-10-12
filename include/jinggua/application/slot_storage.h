@@ -12,6 +12,12 @@ namespace jinggua::application {
 // to back this with NVS/Preferences, LittleFS, or a test double — the ring
 // semantics, validation and recovery all live in RingHistoryStore, which
 // only ever talks through this interface.
+enum class RecordReadResult : std::uint8_t {
+  Missing,
+  Ready,
+  Error,
+};
+
 enum class RecoveryJournalReadResult : std::uint8_t {
   Missing,
   Ready,
@@ -29,12 +35,13 @@ class SlotStorage {
   // ready by construction; persistent adapters override this method.
   virtual bool begin() noexcept { return true; }
 
-  // Reads the record blob at `slot`. Returns false when the slot is empty,
-  // unreadable, or the buffer is too small. On success `sizeOut` receives
-  // the number of bytes read.
-  virtual bool readRecord(std::size_t slot, std::uint8_t* data,
-                          std::size_t capacity,
-                          std::size_t& sizeOut) const noexcept = 0;
+  // Reads the record blob at `slot`. Missing is reserved for a confirmed
+  // absent key; storage/read/buffer errors must return Error so recovery
+  // never treats an I/O failure as an empty slot. On Ready, sizeOut receives
+  // bytes read.
+  virtual RecordReadResult readRecord(std::size_t slot, std::uint8_t* data,
+                                      std::size_t capacity,
+                                      std::size_t& sizeOut) const noexcept = 0;
 
   // Writes a record blob at `slot`, overwriting any previous content.
   virtual bool writeRecord(std::size_t slot, const std::uint8_t* data,

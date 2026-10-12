@@ -46,8 +46,9 @@ class HistoryStore {
   virtual bool get(std::size_t index,
                    domain::HistoryRecord& out) const noexcept = 0;
 
-  // Erases all stored history.
-  virtual void clear() noexcept = 0;
+  // Erases all stored history. False means the durable clear transaction did
+  // not finish; the implementation must fail closed and allow retry on begin().
+  virtual bool clear() noexcept = 0;
 
   virtual std::size_t capacity() const noexcept { return kHistoryCapacity; }
 

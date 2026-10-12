@@ -20,9 +20,10 @@ namespace jinggua::application {
 // missing, corrupt, stale, or inconsistent metadata triggers a full slot scan,
 // collecting valid records sorted by sessionOrder.
 //
-// Corrupted records (CRC mismatch) are silently skipped during get().
-// A corrupted index triggers a full rebuild that preserves every valid
-// record while discarding the unreadable index.
+// Corrupted records (CRC mismatch) are skipped during reads/rebuilds. A
+// confirmed missing slot is empty; a storage read error aborts rebuilding
+// before any slot/index mutation. A corrupted index triggers a full validated
+// scan.
 class RingHistoryStore final : public HistoryStore {
  public:
   explicit RingHistoryStore(SlotStorage& storage) noexcept;
@@ -33,7 +34,7 @@ class RingHistoryStore final : public HistoryStore {
   std::size_t count() const noexcept override;
   bool get(std::size_t index,
            domain::HistoryRecord& out) const noexcept override;
-  void clear() noexcept override;
+  bool clear() noexcept override;
   std::size_t capacity() const noexcept override {
     return storage_.capacity();
   }
@@ -41,6 +42,13 @@ class RingHistoryStore final : public HistoryStore {
   // ────────────────────────────────────────────────────────────────────
 
  private:
+  enum class SlotValidationResult {
+    Valid,
+    Missing,
+    Corrupt,
+    Error,
+  };
+
   // Internal helpers for slot index arithmetic.
   std::size_t tailSlot() const noexcept;
   std::size_t physicalSlot(std::size_t logicalIndex) const noexcept;
@@ -64,11 +72,10 @@ class RingHistoryStore final : public HistoryStore {
   // Persist the current index to storage.
   bool persistIndex() noexcept;
 
-  // Validate a single slot's record blob. Returns Ok on success; on
-  // CrcMismatch/TooShort the slot is treated as empty; on
-  // UnsupportedSchema the record is skipped (unknown newer version).
-  domain::HistoryLoadStatus validateSlot(std::size_t slot,
-                                         domain::HistoryRecord& out) const noexcept;
+  // Validate a record while preserving the backend distinction between a
+  // confirmed empty slot and an I/O failure.
+  SlotValidationResult validateSlot(
+      std::size_t slot, domain::HistoryRecord& out) const noexcept;
 
   SlotStorage& storage_;
   data::HistoryIndex index_{};

@@ -70,7 +70,8 @@ inline jinggua::domain::Yao yaoAt(std::uint8_t position,
 class InMemorySlotStorage final : public jinggua::application::SlotStorage {
  public:
   explicit InMemorySlotStorage(std::size_t capacity) noexcept
-      : records_(capacity), sizes_(capacity, 0) {}
+      : records_(capacity), sizes_(capacity, 0),
+        recordReadFailures_(capacity, false) {}
 
   std::size_t capacity() const noexcept override { return records_.size(); }
 
@@ -82,6 +83,15 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
     recordWriteFailureEnabled_ = true;
     recordWritesBeforeFailure_ = successfulWrites;
   }
+  void setRecordReadFailure(std::size_t slot, bool fail) noexcept {
+    if (slot < recordReadFailures_.size()) {
+      recordReadFailures_[slot] = fail;
+    }
+  }
+  void failRecordEraseAfter(std::size_t successfulErases) noexcept {
+    recordErasesBeforeFailure_ = successfulErases;
+    recordEraseFailureEnabled_ = true;
+  }
   void failNextIndexWrite() noexcept { failNextIndexWrite_ = true; }
   void failNextRecoveryJournalWrite() noexcept {
     failNextRecoveryJournalWrite_ = true;
@@ -90,17 +100,21 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
     failNextRecoveryJournalErase_ = true;
   }
 
-  bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
-                  std::size_t& sizeOut) const noexcept override {
-    if (slot >= records_.size() || sizes_[slot] == 0) {
-      return false;
+  jinggua::application::RecordReadResult readRecord(
+      std::size_t slot, std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override {
+    if (slot >= records_.size() || recordReadFailures_[slot]) {
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (sizes_[slot] == 0) {
+      return jinggua::application::RecordReadResult::Missing;
     }
     if (capacity < sizes_[slot]) {
-      return false;
+      return jinggua::application::RecordReadResult::Error;
     }
     std::memcpy(data, records_[slot].data(), sizes_[slot]);
     sizeOut = sizes_[slot];
-    return true;
+    return jinggua::application::RecordReadResult::Ready;
   }
 
   bool writeRecord(std::size_t slot, const std::uint8_t* data,
@@ -123,6 +137,13 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   bool eraseRecord(std::size_t slot) noexcept override {
     if (slot >= records_.size()) {
       return false;
+    }
+    if (recordEraseFailureEnabled_) {
+      if (recordErasesBeforeFailure_ == 0) {
+        recordEraseFailureEnabled_ = false;
+        return false;
+      }
+      --recordErasesBeforeFailure_;
     }
     sizes_[slot] = 0;
     return true;
@@ -218,6 +239,9 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   // Raw access so a test can patch the index bytes directly.
   std::uint8_t* indexBytes() noexcept { return index_.data(); }
   std::size_t indexSize() const noexcept { return indexSize_; }
+  std::size_t recoveryJournalSize() const noexcept {
+    return recoveryJournalSize_;
+  }
   std::uint8_t* recordBytes(std::size_t slot) noexcept {
     return records_[slot].data();
   }
@@ -230,13 +254,16 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
                          jinggua::domain::kHistoryRecordSerializedSize>>
       records_;
   std::vector<std::size_t> sizes_;
+  std::vector<bool> recordReadFailures_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
   std::array<std::uint8_t, 2048> recoveryJournal_{};
   std::size_t recoveryJournalSize_{0};
   std::size_t recordWritesBeforeFailure_{0};
+  std::size_t recordErasesBeforeFailure_{0};
   bool beginResult_{true};
   bool recordWriteFailureEnabled_{false};
+  bool recordEraseFailureEnabled_{false};
   bool failNextIndexWrite_{false};
   bool failNextRecoveryJournalWrite_{false};
   bool failNextRecoveryJournalErase_{false};
