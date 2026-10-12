@@ -36,6 +36,7 @@ enum class AppState {
   OtaUpToDate,
   OtaAvailable,
   OtaDownloading,
+  OtaFinalizing,
   OtaCancelling,
   OtaCancelled,
   OtaRebooting,
@@ -77,7 +78,7 @@ class StateMachine final {
   AppState state() const noexcept { return state_; }
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   // Automatic DisplayOff/LightSleep is blocked during animation, reset
-  // confirmation, active Wi-Fi work and OTA network/flash operations. This
+  // confirmation, active Wi-Fi work and OTA network/flash/finalization. This
   // keeps lifecycle policy explicit without making PowerManager depend on AppState.
   bool sleepAllowed() const noexcept;
   const DivinationSession& session() const noexcept { return session_; }

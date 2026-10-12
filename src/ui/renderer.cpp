@@ -105,6 +105,9 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
     case application::AppState::OtaDownloading:
       renderOtaDownloading(display_, stateMachine.lastFirmwareUpdateStatus());
       break;
+    case application::AppState::OtaFinalizing:
+      renderOtaFinalizing(display_);
+      break;
     case application::AppState::OtaCancelling:
       renderOtaCancelling(display_);
       break;

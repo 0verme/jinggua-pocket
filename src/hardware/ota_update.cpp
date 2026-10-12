@@ -158,7 +158,9 @@ bool Esp32FirmwareUpdateClient::beginInstall() noexcept {
 void Esp32FirmwareUpdateClient::cancel() noexcept {
 #if defined(ARDUINO)
   portENTER_CRITICAL(&statusMux_);
-  if (operationActive_) {
+  if (operationActive_ &&
+      (status_.state == application::FirmwareUpdateState::Checking ||
+       status_.state == application::FirmwareUpdateState::Downloading)) {
     cancelRequested_ = true;
   }
   portEXIT_CRITICAL(&statusMux_);
@@ -224,6 +226,20 @@ bool Esp32FirmwareUpdateClient::isCancelled() const noexcept {
   const bool cancelled = cancelRequested_;
   portEXIT_CRITICAL(&statusMux_);
   return cancelled;
+}
+
+bool Esp32FirmwareUpdateClient::beginFinalization() noexcept {
+  portENTER_CRITICAL(&statusMux_);
+  const bool canFinalize =
+      operationActive_ && operation_ == Operation::Install &&
+      status_.state == application::FirmwareUpdateState::Downloading &&
+      !cancelRequested_;
+  if (canFinalize) {
+    status_.state = application::FirmwareUpdateState::Finalizing;
+    status_.progressPercent = 100;
+  }
+  portEXIT_CRITICAL(&statusMux_);
+  return canFinalize;
 }
 
 void Esp32FirmwareUpdateClient::publish(
@@ -523,6 +539,12 @@ void Esp32FirmwareUpdateClient::runInstall() noexcept {
     publish(application::FirmwareUpdateState::Failed,
             application::FirmwareUpdateError::HashMismatch, 0,
             manifest.version);
+    return;
+  }
+  if (!beginFinalization()) {
+    Update.abort();
+    publish(application::FirmwareUpdateState::Cancelled,
+            application::FirmwareUpdateError::None, 0, manifest.version);
     return;
   }
   if (!Update.end(false)) {

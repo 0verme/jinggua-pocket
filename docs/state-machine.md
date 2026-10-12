@@ -40,7 +40,9 @@ WIFI_CONNECTING 的 SecondaryClick 取消连接，WIFI_CONNECTED 的 PrimaryClic
 
 `WifiConnected` 长按进入 `OtaPrompt`，按 A 才进入 `OtaChecking`；有更新时还需在
 `OtaAvailable` 再按 A 才下载。下载/检查按 B 请求 `OtaCancelling`，任务确认停止后
-进入 `OtaCancelled`。失败只在用户按 A 后重试。检查与下载均不创建/清除 session 或
+进入 `OtaCancelled`。完整镜像校验后，状态机会原子进入不可取消的 `OtaFinalizing`，
+随后激活新 slot 并进入 `OtaRebooting`；取消与该 finalization 边界竞争时，要么取消先赢并
+中止激活，要么 finalization 先赢且 UI 不再显示取消。失败只在用户按 A 后重试。检查与下载均不创建/清除 session 或
 History；开机和普通 Wi-Fi 连接不自动检查。
 
 ## 状态说明
@@ -69,6 +71,7 @@ History；开机和普通 Wi-Fi 连接不自动检查。
 | `OtaUpToDate` | 固件已是最新 | A → 手动再查；B → Welcome |
 | `OtaAvailable` | 已验证的版本信息 | A → 下载/安装；B → Welcome |
 | `OtaDownloading` | 单次受限固件下载/写 inactive slot | B → 取消；`update()` 驱动进度 |
+| `OtaFinalizing` | 镜像已校验，原子关闭取消入口并准备激活 slot | 忽略输入；`update()` 等待激活结果 |
 | `OtaCancelling` | 等待下载任务确认停止 | 忽略输入；完成后 → `OtaCancelled` |
 | `OtaCancelled` | 操作已取消，当前 slot 不切换 | A → 再查；B → Welcome |
 | `OtaRebooting` | SHA/ESP image 校验通过，新 slot 已激活 | 忽略输入；设备重启 |
@@ -123,7 +126,7 @@ Active ──30s idle──> Dim ──60s idle──> Display Off ──300s id
 - `Display Off` 关闭显示输出但 MCU 仍运行，IMU 降频轮询；
 - `Light Sleep` 停止普通 IMU polling，硬件 adapter 等待 BtnA/BtnB wake；
 - `StateMachine::sleepAllowed()` 在 coin animation、`ResetConfirm`、
-  `WifiConnecting`、`WifiConnected` 和 OTA 检查/下载/取消/重启期间返回 false，
+  `WifiConnecting`、`WifiConnected` 和 OTA 检查/下载/取消/finalization/重启期间返回 false，
   PowerManager 保持 `Active`；
 - 唤醒只恢复显示和 inactivity timer，不改变 session、History 或当前
   `AppState`。

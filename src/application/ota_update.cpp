@@ -292,6 +292,8 @@ const char* firmwareUpdateStateName(FirmwareUpdateState state) noexcept {
       return "AVAILABLE";
     case FirmwareUpdateState::Downloading:
       return "DOWNLOADING";
+    case FirmwareUpdateState::Finalizing:
+      return "FINALIZING";
     case FirmwareUpdateState::Rebooting:
       return "REBOOTING";
     case FirmwareUpdateState::Cancelled:

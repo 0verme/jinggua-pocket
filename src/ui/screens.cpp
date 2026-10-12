@@ -490,6 +490,14 @@ void renderOtaDownloading(
   drawFooter(display, "B 取消");
 }
 
+void renderOtaFinalizing(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("正在更新", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  drawFooter(display, "请勿断电");
+}
+
 void renderOtaCancelling(hardware::Display& display) noexcept {
   clearScreen(display);
   drawTitle(display, "固件更新");

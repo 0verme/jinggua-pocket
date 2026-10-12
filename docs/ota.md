@@ -6,7 +6,7 @@ Pocket OTA 是用户显式触发的单次 HTTPS 更新流程。检查更新、�
 
 PlatformIO `m5stack-sticks3` 当前使用 ESP32-S3 `default_8MB.csv`：`ota_0` 与 `ota_1` 各 0x330000 bytes，`otadata` 独立，NVS 独立。固定 PlatformIO ESP32-S3 `qio_opi` SDK config 中 `CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=1`。CI 的 `tools/check_ota_support.py` 检查这组分区/bootloader 前提；构建后也检查固件不超过单 OTA slot。
 
-安装时 `Update` 只写入 inactive OTA app slot；整个镜像通过 HTTPS 获取、长度限制和 SHA-256 检查、ESP image 校验后才激活 boot partition。若下载/取消/长度/hash/image 校验错误发生在写入期间，会调用 `Update.abort()`；写入前的网络失败不开始写 flash。任何失败均不切换当前 boot partition。OTA 不写 NVS / 历史分区。更新后新镜像启动时先完成基础显示与应用状态机初始化，再调用 `esp_ota_mark_app_valid_cancel_rollback()`；基础启动失败则请求 `esp_ota_mark_app_invalid_rollback_and_reboot()`，交由已启用的 ESP-IDF bootloader 回退。
+安装时 `Update` 只写入 inactive OTA app slot；整个镜像通过 HTTPS 获取、长度限制和 SHA-256 检查、ESP image 校验后才激活 boot partition。取消请求与激活用同一 critical section 仲裁：若 B 取消先到，写入任务中止并调用 `Update.abort()`，当前 boot slot 不变；若完整性校验后进入 `Finalizing` 先到，界面切为不可取消的「正在更新/请勿断电」，随后完成 `Update.end(false)`，避免 UI 仍显示可取消时偷偷切换 boot slot。激活失败会回到错误页，不会卡在重启页。写入前的网络失败不开始写 flash。OTA 不写 NVS / 历史分区。更新后新镜像启动时先完成基础显示与应用状态机初始化，再调用 `esp_ota_mark_app_valid_cancel_rollback()`；基础启动失败则请求 `esp_ota_mark_app_invalid_rollback_and_reboot()`，交由已启用的 ESP-IDF bootloader 回退。
 
 SHA-256 用于镜像完整性验证，不是离线签名。HTTPS CA 校验与 GitHub Release 仓库/写权限是当前发布信任边界；尚未配置独立离线签名密钥或 Secure Boot。不能把 SHA-256 文案误称为独立发布者签名。
 
@@ -15,10 +15,10 @@ SHA-256 用于镜像完整性验证，不是离线签名。HTTPS CA 校验与 Gi
 1. 用户先从欢迎页进入 Wi-Fi 设置并主动连接网络。
 2. 已连接页长按任一按键打开「固件更新」确认页。
 3. 按 A 才查询版本；发现新版本后必须再次按 A 才开始下载/安装。
-4. 下载过程中按 B 请求安全取消；界面显示进度。SHA 与 ESP image 校验通过后显示重启提示。
+4. 下载过程中按 B 请求安全取消；界面显示进度。SHA 与 ESP image 校验通过后原子关闭取消入口，进入不可取消的 finalization 屏幕，激活结果成功后才显示重启提示。
 5. 错误显示有限类别；只有用户再次按 A 才会重试。不会自动连接 Wi-Fi、重试或更新。
 
-OTA 查询需要 Wi-Fi 当前处于 Connected。缺少配置会显示“更新服务未配置”，不会跳过证书验证。更新/取消期间 `StateMachine::sleepAllowed()` 返回 false，减少屏幕休眠中断操作。
+OTA 查询需要 Wi-Fi 当前处于 Connected。缺少配置会显示“更新服务未配置”，不会跳过证书验证。更新/取消/finalization 期间 `StateMachine::sleepAllowed()` 返回 false，减少屏幕休眠中断操作。
 
 ## Manifest / GitHub Release 契约
 

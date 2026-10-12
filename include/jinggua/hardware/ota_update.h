@@ -30,6 +30,7 @@ class Esp32FirmwareUpdateClient final
   void runCheck() noexcept;
   void runInstall() noexcept;
   bool isCancelled() const noexcept;
+  bool beginFinalization() noexcept;
   void publish(application::FirmwareUpdateState state,
                application::FirmwareUpdateError error =
                    application::FirmwareUpdateError::None,

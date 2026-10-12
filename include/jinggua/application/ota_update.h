@@ -57,6 +57,7 @@ enum class FirmwareUpdateState : std::uint8_t {
   UpToDate,
   Available,
   Downloading,
+  Finalizing,
   Rebooting,
   Cancelled,
   Failed,
@@ -89,7 +90,8 @@ const char* firmwareUpdateErrorName(FirmwareUpdateError error) noexcept;
 
 // Non-blocking port for a user-triggered update. Implementations must use a
 // one-shot operation, report bounded progress, and preserve the running image
-// until a complete, verified replacement is ready to boot.
+// until a complete, verified replacement is ready to boot. Cancellation must
+// be atomically closed before activating the verified replacement.
 class FirmwareUpdateClient {
  public:
   virtual ~FirmwareUpdateClient() = default;
