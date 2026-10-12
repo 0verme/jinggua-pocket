@@ -133,6 +133,9 @@ data (8 trigrams + 64 hexagrams)
 
 ## Development
 
+当前开发预览版的首次运行、离线起卦、Wi-Fi/OTA 限制和已知未完成项见
+[快速开始与限制说明](docs/quick-start.md)。该指南不代表 v1.0 发布或硬件验收通过。
+
 ### Host native tests
 
 领域与应用层可在没有 StickS3 的主机环境编译：

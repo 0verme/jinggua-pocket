@@ -5,11 +5,19 @@
 #include <cstdio>
 
 #include "jinggua/ui/coin_animation.h"
+#include "jinggua/ui/firmware_version.h"
 #include "jinggua/ui/layout.h"
 #include "jinggua/ui/theme.h"
 #include "jinggua/ui/typography.h"
 
 namespace jinggua::ui {
+
+static_assert(sizeof(JINGGUA_FIRMWARE_VERSION) > 1,
+              "Firmware version must not be empty");
+static_assert(sizeof(JINGGUA_FIRMWARE_VERSION) - 1 <=
+                  application::kFirmwareVersionMaxLength,
+              "Firmware version exceeds the supported OTA/display length");
+
 namespace {
 
 int margin(const hardware::Display& display) noexcept {
@@ -365,8 +373,24 @@ void renderWifiSettings(hardware::Display& display,
     drawSsid(display, wifi);
   }
   display.drawText(soundEnabled ? "声音：开" : "声音：关", margin(display),
-                   layout::kWifiSsidY + 32, theme::kAccent,
+                   layout::kSettingsSoundY, theme::kAccent,
                    typography::kSecondary);
+  display.drawText("固件版本", margin(display),
+                   layout::kSettingsFirmwareVersionLabelY, theme::kMuted,
+                   typography::kFooter);
+
+  FirmwareVersionLines versionLines{};
+  if (splitFirmwareVersion(application::kJingGuaFirmwareVersion,
+                           versionLines)) {
+    display.drawText(versionLines.first, margin(display),
+                     layout::kSettingsFirmwareVersionLine1Y, theme::kMuted,
+                     typography::kFooter);
+    if (versionLines.second[0] != '\0') {
+      display.drawText(versionLines.second, margin(display),
+                       layout::kSettingsFirmwareVersionLine2Y, theme::kMuted,
+                       typography::kFooter);
+    }
+  }
   drawFooter(display, "A 连接  B 返回", "长按：声音开关");
 }
 

@@ -6,6 +6,7 @@ All notable changes to `jinggua-pocket` are recorded here.
 
 ### Added
 
+- Current compiled firmware version on the Wi-Fi Settings screen and a pre-release quick-start/limitations guide.
 - Phase 0 PlatformIO project targeting only M5Stack StickS3 / ESP32-S3.
 - Host-testable three-coin, six-line divination domain model.
 - King Wen order mapping for all 64 hexagrams.

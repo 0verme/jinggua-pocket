@@ -54,6 +54,11 @@ constexpr int kResetQuestionY = 70;
 
 constexpr int kWifiStatusY = 62;
 constexpr int kWifiSsidY = 104;
+constexpr int kSettingsSoundY = kWifiSsidY + 20;
+constexpr int kSettingsFirmwareVersionLabelY = 144;
+constexpr int kSettingsFirmwareVersionLine1Y = 160;
+constexpr int kSettingsFirmwareVersionLine2Y = 176;
+constexpr std::size_t kFirmwareVersionCharactersPerLine = 12;
 constexpr std::size_t kWifiSsidMaxCharacters = 8;
 
 constexpr int kHistoryOrderY = 42;
@@ -142,6 +147,8 @@ constexpr bool isPocketLayoutSafe() noexcept {
          kContentY > kHeaderY + typography::kSectionLineHeight &&
          kHexagramLastY < kFooterSecondaryY &&
          kHexagramMarkerLastY < kFooterY &&
+         kSettingsFirmwareVersionLine2Y + kFooterLineHeight <
+             kFooterSecondaryY &&
          kHomePrimaryY + typography::kPrimaryLineHeight < kFooterY &&
          kCastingActionY + typography::kPrimaryLineHeight < kFooterY;
 }
