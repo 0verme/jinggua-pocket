@@ -312,7 +312,7 @@ void runRingHistoryStoreTests(TestRunner& runner) {
     }
   }
 
-  // A transient slot read error must abort rebuild before any mutation.
+  // A one-shot active-slot read error must abort recovery before any mutation.
   {
     InMemorySlotStorage storage(4);
     {
@@ -332,7 +332,7 @@ void runRingHistoryStoreTests(TestRunner& runner) {
     std::memcpy(indexBefore.data(), storage.indexBytes(), indexBefore.size());
     const auto indexSizeBefore = storage.indexSize();
 
-    storage.setRecordReadFailure(0, true);
+    storage.failNextRecordRead(0);
     {
       RingHistoryStore store(storage);
       EXPECT(runner, !store.begin());
@@ -347,7 +347,6 @@ void runRingHistoryStoreTests(TestRunner& runner) {
     EXPECT_EQ(runner, storage.recoveryJournalSize(),
               static_cast<std::size_t>(0));
 
-    storage.setRecordReadFailure(0, false);
     RingHistoryStore recovered(storage);
     EXPECT(runner, recovered.begin());
     EXPECT_EQ(runner, recovered.count(), static_cast<std::size_t>(2));

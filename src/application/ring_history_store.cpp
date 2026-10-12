@@ -132,26 +132,30 @@ bool RingHistoryStore::loadIndex() noexcept {
   return true;
 }
 
-bool RingHistoryStore::activeIndexMatchesRecords() const noexcept {
+RingHistoryStore::ActiveIndexCheckResult
+RingHistoryStore::activeIndexMatchesRecords() const noexcept {
   const auto capacity = storage_.capacity();
   if (capacity == 0 || capacity > 64U || index_.count > capacity ||
       index_.head >= capacity) {
-    return false;
+    return ActiveIndexCheckResult::Mismatch;
   }
 
   domain::HistoryRecord previous{};
   bool hasPrevious = false;
   for (std::size_t logical = 0; logical < index_.count; ++logical) {
     domain::HistoryRecord current{};
-    if (validateSlot(physicalSlot(logical), current) !=
-        SlotValidationResult::Valid) {
-      return false;
+    const auto status = validateSlot(physicalSlot(logical), current);
+    if (status == SlotValidationResult::Error) {
+      return ActiveIndexCheckResult::Error;
+    }
+    if (status != SlotValidationResult::Valid) {
+      return ActiveIndexCheckResult::Mismatch;
     }
     if (hasPrevious &&
         (current.sessionOrder < previous.sessionOrder ||
          (current.sessionOrder == previous.sessionOrder &&
           current.localRecordId < previous.localRecordId))) {
-      return false;
+      return ActiveIndexCheckResult::Mismatch;
     }
     previous = current;
     hasPrevious = true;
@@ -160,12 +164,16 @@ bool RingHistoryStore::activeIndexMatchesRecords() const noexcept {
   std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
   for (std::size_t logical = index_.count; logical < capacity; ++logical) {
     std::size_t size = 0;
-    if (storage_.readRecord(physicalSlot(logical), blob.data(), blob.size(),
-                            size) != RecordReadResult::Missing) {
-      return false;
+    const auto status = storage_.readRecord(
+        physicalSlot(logical), blob.data(), blob.size(), size);
+    if (status == RecordReadResult::Error) {
+      return ActiveIndexCheckResult::Error;
+    }
+    if (status == RecordReadResult::Ready) {
+      return ActiveIndexCheckResult::Mismatch;
     }
   }
-  return true;
+  return ActiveIndexCheckResult::Match;
 }
 
 bool RingHistoryStore::persistIndex() noexcept {
@@ -346,9 +354,16 @@ bool RingHistoryStore::begin() noexcept {
     return healthy_;
   }
 
-  if (loadIndex() && activeIndexMatchesRecords()) {
-    healthy_ = true;
-    return true;
+  if (loadIndex()) {
+    const auto indexStatus = activeIndexMatchesRecords();
+    if (indexStatus == ActiveIndexCheckResult::Match) {
+      healthy_ = true;
+      return true;
+    }
+    if (indexStatus == ActiveIndexCheckResult::Error) {
+      index_ = data::HistoryIndex{};
+      return false;
+    }
   }
 
   // Missing, corrupt, stale, or inconsistent index → stage and replay a full

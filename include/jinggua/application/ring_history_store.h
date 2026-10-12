@@ -48,6 +48,7 @@ class RingHistoryStore final : public HistoryStore {
     Corrupt,
     Error,
   };
+  enum class ActiveIndexCheckResult { Match, Mismatch, Error };
 
   // Internal helpers for slot index arithmetic.
   std::size_t tailSlot() const noexcept;
@@ -57,7 +58,7 @@ class RingHistoryStore final : public HistoryStore {
   // successfully loaded and validated; false when it is missing, corrupt,
   // or unreadable (caller should run rebuildFromSlots instead).
   bool loadIndex() noexcept;
-  bool activeIndexMatchesRecords() const noexcept;
+  ActiveIndexCheckResult activeIndexMatchesRecords() const noexcept;
 
   // Full rebuild: scan all slots, collect valid records, sort by
   // (sessionOrder, localRecordId), reconstruct head/count/nextIds.

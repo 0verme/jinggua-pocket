@@ -71,7 +71,8 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
  public:
   explicit InMemorySlotStorage(std::size_t capacity) noexcept
       : records_(capacity), sizes_(capacity, 0),
-        recordReadFailures_(capacity, false) {}
+        recordReadFailures_(capacity, false),
+        oneShotRecordReadFailures_(capacity, false) {}
 
   std::size_t capacity() const noexcept override { return records_.size(); }
 
@@ -86,6 +87,11 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   void setRecordReadFailure(std::size_t slot, bool fail) noexcept {
     if (slot < recordReadFailures_.size()) {
       recordReadFailures_[slot] = fail;
+    }
+  }
+  void failNextRecordRead(std::size_t slot) noexcept {
+    if (slot < oneShotRecordReadFailures_.size()) {
+      oneShotRecordReadFailures_[slot] = true;
     }
   }
   void failRecordEraseAfter(std::size_t successfulErases) noexcept {
@@ -103,7 +109,14 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   jinggua::application::RecordReadResult readRecord(
       std::size_t slot, std::uint8_t* data, std::size_t capacity,
       std::size_t& sizeOut) const noexcept override {
-    if (slot >= records_.size() || recordReadFailures_[slot]) {
+    if (slot >= records_.size()) {
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (oneShotRecordReadFailures_[slot]) {
+      oneShotRecordReadFailures_[slot] = false;
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (recordReadFailures_[slot]) {
       return jinggua::application::RecordReadResult::Error;
     }
     if (sizes_[slot] == 0) {
@@ -255,6 +268,7 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
       records_;
   std::vector<std::size_t> sizes_;
   std::vector<bool> recordReadFailures_;
+  mutable std::vector<bool> oneShotRecordReadFailures_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
   std::array<std::uint8_t, 2048> recoveryJournal_{};
