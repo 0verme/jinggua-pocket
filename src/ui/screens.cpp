@@ -385,7 +385,7 @@ void renderWifiConnected(hardware::Display& display,
   display.drawText("已连接", margin(display), layout::kWifiStatusY,
                    theme::kText, typography::kPrimary);
   drawSsid(display, wifi);
-  drawFooter(display, "A 断开", "B 设置");
+  drawFooter(display, "A 断开", "B设置 长按更新");
 }
 
 void renderWifiFailed(hardware::Display& display,
@@ -428,6 +428,139 @@ void renderUploadFailed(hardware::Display& display) noexcept {
   display.drawText("上传失败", margin(display), layout::kContentY, theme::kText,
                    typography::kPrimary);
   display.drawText("稍后重试", margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
+  drawFooter(display, "A 重试  B 返回");
+}
+
+void renderOtaPrompt(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("手动检查", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  display.drawText("需先连接 Wi-Fi", margin(display),
+                   layout::kContentY + 40, theme::kMuted,
+                   typography::kSecondary);
+  drawFooter(display, "A 检查  B 返回");
+}
+
+void renderOtaChecking(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("正在检查…", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  drawFooter(display, "B 取消");
+}
+
+void renderOtaUpToDate(
+    hardware::Display& display,
+    const application::FirmwareUpdateStatus& status) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("已是最新", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  display.drawText(status.version, margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
+  drawFooter(display, "A 重试  B 返回");
+}
+
+void renderOtaAvailable(
+    hardware::Display& display,
+    const application::FirmwareUpdateStatus& status) noexcept {
+  clearScreen(display);
+  drawTitle(display, "发现更新");
+  display.drawText(status.version, margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  display.drawText("按 A 开始下载", margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
+  drawFooter(display, "A 安装  B 返回");
+}
+
+void renderOtaDownloading(
+    hardware::Display& display,
+    const application::FirmwareUpdateStatus& status) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  char progress[24]{};
+  std::snprintf(progress, sizeof(progress), "下载 %u%%",
+                static_cast<unsigned>(status.progressPercent));
+  display.drawText(progress, margin(display), layout::kContentY, theme::kText,
+                   typography::kPrimary);
+  display.drawText("校验后才会重启", margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
+  drawFooter(display, "B 取消");
+}
+
+void renderOtaCancelling(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("正在取消…", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  drawFooter(display, "请稍候");
+}
+
+void renderOtaCancelled(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("更新已取消", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  drawFooter(display, "A 重试  B 返回");
+}
+
+void renderOtaRebooting(hardware::Display& display) noexcept {
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("校验通过", margin(display), layout::kContentY,
+                   theme::kText, typography::kPrimary);
+  display.drawText("设备即将重启", margin(display), layout::kContentY + 40,
+                   theme::kMuted, typography::kSecondary);
+  drawFooter(display, "请勿断电");
+}
+
+void renderOtaFailed(
+    hardware::Display& display,
+    const application::FirmwareUpdateStatus& status) noexcept {
+  const char* message = "稍后重试";
+  switch (status.error) {
+    case application::FirmwareUpdateError::Offline:
+      message = "请先连接 Wi-Fi";
+      break;
+    case application::FirmwareUpdateError::NotConfigured:
+      message = "更新服务未配置";
+      break;
+    case application::FirmwareUpdateError::Network:
+      message = "网络连接失败";
+      break;
+    case application::FirmwareUpdateError::InvalidManifest:
+    case application::FirmwareUpdateError::InvalidVersion:
+      message = "更新信息无效";
+      break;
+    case application::FirmwareUpdateError::NoSpace:
+      message = "更新空间不足";
+      break;
+    case application::FirmwareUpdateError::DownloadInterrupted:
+      message = "下载中断";
+      break;
+    case application::FirmwareUpdateError::HashMismatch:
+      message = "完整性校验失败";
+      break;
+    case application::FirmwareUpdateError::InvalidImage:
+      message = "固件格式无效";
+      break;
+    case application::FirmwareUpdateError::ActivationFailed:
+      message = "更新无法启动";
+      break;
+    case application::FirmwareUpdateError::ResourceUnavailable:
+      message = "设备资源不足";
+      break;
+    case application::FirmwareUpdateError::None:
+      break;
+  }
+
+  clearScreen(display);
+  drawTitle(display, "固件更新");
+  display.drawText("更新失败", margin(display), layout::kContentY, theme::kText,
+                   typography::kPrimary);
+  display.drawText(message, margin(display), layout::kContentY + 40,
                    theme::kMuted, typography::kSecondary);
   drawFooter(display, "A 重试  B 返回");
 }

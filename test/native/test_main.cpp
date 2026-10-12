@@ -22,6 +22,7 @@ void runRingHistoryStoreTests(TestRunner& runner);
 void runHistoryApplicationTests(TestRunner& runner);
 void runWifiTests(TestRunner& runner);
 void runApiTests(TestRunner& runner);
+void runOtaTests(TestRunner& runner);
 
 int main() {
   TestRunner runner;
@@ -45,6 +46,7 @@ int main() {
   runHistoryApplicationTests(runner);
   runWifiTests(runner);
   runApiTests(runner);
+  runOtaTests(runner);
 
   std::cout << "jinggua native tests: " << runner.assertions()
             << " assertions, " << runner.failures() << " failures\n";

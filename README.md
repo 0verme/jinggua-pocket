@@ -13,9 +13,9 @@ another divination firmware.
 由用户明确触发 Wi-Fi 联动，把完整解卦、历史与分享交给 JingGua Web。
 
 当前仓库包含 **Phase 0 工程初始化 + Hardware v0.2 离线骨架 + Issue #8
-Connected JingGua 最小 API Contract**：先把领域逻辑、输入抽象、状态机和真机
-硬件边界建立清楚；可选联网只上传已在本地完成的结果，不引入云端随机、AI 或
-用户问题数据收集。
+Connected JingGua API Contract + Issue #16 安全 OTA 软件路径**：先把领域逻辑、
+输入抽象、状态机和真机硬件边界建立清楚；联网仅在用户显式操作后上传已完成结果
+或校验/下载固件，不引入云端随机、AI 或用户问题数据收集。
 
 ## 当前状态
 
@@ -28,8 +28,12 @@ Connected JingGua 最小 API Contract**：先把领域逻辑、输入抽象、�
   radio 置为关闭，只有用户从设置页显式触发才连接；连接异步非阻塞、15 秒超时、
   失败/超时不自动重连。完整六爻先在本地生成，结果页按 B 才上传；上传使用
   HTTPS、CA 校验、bounded payload/response、错误分类和手动 retry。当前不包含
-  设备绑定、二维码、历史自动同步或 OTA。凭据通过构建期环境变量注入，不提交到
-  仓库（见下文「Wi-Fi/API 开发配置」）。
+  设备绑定、二维码或历史自动同步。凭据通过构建期环境变量注入，不提交到仓库
+  （见下文「Wi-Fi/API 开发配置」）。
+- **安全 OTA 软件路径已实现（Issue #16）**：从已连接页显式进入、再次确认检查/安装，
+  下载仅允许受限 GitHub Release URL，TLS、SHA-256、固件/分区上限、inactive-slot
+  写入和 bootloader rollback 均有软件门禁；当前 Release 尚不存在，真机更新与掉电/回滚
+  仍为 `PENDING_HARDWARE_VALIDATION`。详见 [`docs/ota.md`](docs/ota.md)。
 - **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
   → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
   接入；真实电流、唤醒稳定性和续航仍为 `PENDING DEVICE VALIDATION`。
@@ -84,15 +88,15 @@ PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录�
 ### 明确不在本阶段
 
 AI 解卦、完整经文、OAuth、数据库管理、BLE 配网、设备绑定、历史自动同步、
-OTA、二维码、语音、自定义 PCB、外壳和多硬件兼容都不在本 Issue #8 scope 内。
+二维码、语音、自定义 PCB、外壳和多硬件兼容都不在本 Issue #8 scope 内。
 
 ## Architecture
 
 ```text
-hardware (StickS3 / M5Unified / HTTPS)
+hardware (StickS3 / M5Unified / HTTPS OTA/API)
         │  InputEvent + adapters
         ▼
-application (Session + StateMachine + ApiClient)
+application (Session + StateMachine + ApiClient + FirmwareUpdateClient)
         │  const domain values / ports
         ▼
 domain (coin / yao / trigram / hexagram / transformation)
@@ -110,8 +114,8 @@ data (8 trigrams + 64 hexagrams)
 - `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算；
   `ui/layout.h`、`ui/theme.h`、`ui/typography.h` 统一小屏布局、颜色和字号。
 - `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
-- `tools/generate_font_assets.py` 从 Noto Sans SC 生成实际文案子集；
-  `docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
+- `tools/merge_font_assets.py` 将 Noto Sans SC 中缺少的实际文案字形合并进 VLW
+  子集并保留既有 bitmap；`docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
 
 详见：
 
@@ -121,6 +125,7 @@ data (8 trigrams + 64 hexagrams)
 - [`docs/power-management.md`](docs/power-management.md)
 - [`docs/coin-animation.md`](docs/coin-animation.md)
 - [`docs/api-contract.md`](docs/api-contract.md)
+- [`docs/ota.md`](docs/ota.md)
 - [`docs/audio-feedback.md`](docs/audio-feedback.md)
 - [`docs/ui-guidelines.md`](docs/ui-guidelines.md)
 
@@ -139,13 +144,16 @@ ctest --test-dir build/native --output-on-failure
 测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序、
 完整状态流、PowerManager 的 inactivity threshold、活动唤醒、sleep inhibition 和
 `millis()` wrap-around，以及 API contract 的 fake transport/client、离线保护、
-错误、bounded response 和手动 retry。Host tests 使用 deterministic
-`RandomProvider`，不会调用 Arduino `random()`。
+错误、bounded response 和手动 retry；OTA manifest/version、显式检查/安装、离线保护、
+下载进度与取消。Host tests 使用 deterministic `RandomProvider`，不会调用 Arduino `random()`。
+OTA manifest 生成器由 `python -m unittest discover -s test/python -p 'test_*.py'` 验证。
 
-字体子集完整性检查：
+字体子集完整性、分区/rollback 检查与 Release manifest 工具测试：
 
 ```bash
 python tools/check_font_asset.py
+python tools/check_ota_support.py
+python -m unittest discover -s test/python -p 'test_*.py'
 ```
 
 ### StickS3 firmware
@@ -154,6 +162,7 @@ python tools/check_font_asset.py
 
 ```bash
 pio run -e m5stack-sticks3
+python tools/check_ota_support.py
 pio run -e m5stack-sticks3 -t upload
 pio device monitor -b 115200
 ```
@@ -182,7 +191,10 @@ pio run -e m5stack-sticks3
 
 `tools/wifi_credentials.py` 注入 Wi-Fi 构建参数，`tools/api_config.py` 注入
 API URL 和公开 CA certificate；脚本不会打印 API 配置。没有 CA 时不会调用
-`setInsecure()`，而是 fail closed。
+`setInsecure()`，而是 fail closed。OTA 发布构建另设置
+`JINGGUA_FIRMWARE_VERSION` 与 `JINGGUA_OTA_ROOT_CA`；没有 OTA CA 时更新器拒绝
+启动网络操作。GitHub Release manifest/asset 的契约、哈希生成命令和硬件边界见
+[`docs/ota.md`](docs/ota.md)；当前基线尚无 Release，软件路径需要随 #18 资产发布才有可更新版本。
 `.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
 credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
 详见 [`docs/hardware.md`](docs/hardware.md) 的「Wi-Fi Provisioning TODO」。
@@ -198,7 +210,8 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
   二维码和手机完整解卦另行实现。
 - **v0.4**：历史记录与 Web / Device 同步。
 - **v0.5**：麦克风与语音问事。
-- **v1.0**：定制外壳、稳定固件、OTA、正式 Release。
+- **v0.6**：安全 OTA 客户端（Issue #16）与 Release workflow/assets（Issue #18）；硬件验证单独跟踪。
+- **v1.0**：定制外壳、稳定固件与正式发布。
 
 ## Related Project
 
@@ -207,9 +220,9 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
 ## Privacy and disclaimer
 
 设备不上传用户所问之事，不采集 MAC/芯片唯一 ID，不做自动联网或后台上报。
-Issue #8 新增的 API 只在用户完成六爻并在结果页按 B 后发送已完成结果；设备默认
-在开机时关闭 radio，连接成功后也不自动上传。请求不包含长期 credential；未来
-正式设备绑定属于 #9。
+Issue #8 的 API 只在用户完成六爻并在结果页按 B 后发送已完成结果；OTA 只在用户
+从已连接页长按并确认后读取 Release manifest/固件。设备默认开机关闭 radio，连接
+成功后不自动上传、检查或下载。请求不包含长期 credential；未来正式设备绑定属于 #9。
 
 本项目是文化与自我反思用途的工具，不替代医疗、法律、财务或其他专业
 判断。卦象算法和显示顺序会在测试与真机 Bring-up 中持续校验。

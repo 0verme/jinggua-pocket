@@ -7,6 +7,7 @@
 #include "jinggua/application/divination_session.h"
 #include "jinggua/application/jinggua_api_client.h"
 #include "jinggua/application/history_store.h"
+#include "jinggua/application/ota_update.h"
 #include "jinggua/application/input_event.h"
 #include "jinggua/application/wifi_controller.h"
 
@@ -30,6 +31,15 @@ enum class AppState {
   Uploading,
   UploadSuccess,
   UploadFailed,
+  OtaPrompt,
+  OtaChecking,
+  OtaUpToDate,
+  OtaAvailable,
+  OtaDownloading,
+  OtaCancelling,
+  OtaCancelled,
+  OtaRebooting,
+  OtaFailed,
 };
 
 const char* appStateName(AppState state) noexcept;
@@ -60,18 +70,22 @@ class StateMachine final {
   // Audio is optional so native/application tests and future headless builds
   // do not need a hardware implementation.
   void setAudioController(AudioController& audio) noexcept;
+  void setFirmwareUpdateClient(FirmwareUpdateClient& client) noexcept;
   void setSoundEnabled(bool enabled) noexcept;
   void toggleSoundEnabled() noexcept { setSoundEnabled(!soundEnabled_); }
 
   AppState state() const noexcept { return state_; }
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
   // Automatic DisplayOff/LightSleep is blocked during animation, reset
-  // confirmation and active Wi-Fi work. This keeps lifecycle policy explicit
-  // without making PowerManager depend on AppState.
+  // confirmation, active Wi-Fi work and OTA network/flash operations. This
+  // keeps lifecycle policy explicit without making PowerManager depend on AppState.
   bool sleepAllowed() const noexcept;
   const DivinationSession& session() const noexcept { return session_; }
   const WifiController& wifi() const noexcept { return *wifi_; }
   const ApiResult& lastApiResult() const noexcept { return lastApiResult_; }
+  const FirmwareUpdateStatus& lastFirmwareUpdateStatus() const noexcept {
+    return lastFirmwareUpdateStatus_;
+  }
   bool isDirty() const noexcept { return dirty_; }
   bool soundEnabled() const noexcept { return soundEnabled_; }
   void acknowledgeRender() noexcept { dirty_ = false; }
@@ -86,6 +100,10 @@ class StateMachine final {
   void playSound(SoundCue cue) noexcept;
   void handleResultAction() noexcept;
   void requestUpload() noexcept;
+  void requestFirmwareCheck() noexcept;
+  void requestFirmwareInstall() noexcept;
+  void cancelFirmwareOperation() noexcept;
+  void updateFirmwareOperation() noexcept;
 
   // Move the history browser cursor by a signed offset, clamped to the
   // available record range.
@@ -98,6 +116,8 @@ class StateMachine final {
   HistoryStore* history_{nullptr};
   WifiController* wifi_{nullptr};
   ApiClient* apiClient_{nullptr};
+  FirmwareUpdateClient* firmwareUpdateClient_{nullptr};
+  FirmwareUpdateStatus lastFirmwareUpdateStatus_{};
   std::uint32_t localRecordId_{0};
   ApiResult lastApiResult_{ApiResult::failure(ApiError::Offline)};
   bool uploadStarted_{false};
