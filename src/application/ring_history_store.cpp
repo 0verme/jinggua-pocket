@@ -6,6 +6,92 @@
 #include <utility>
 
 namespace jinggua::application {
+namespace {
+
+constexpr std::uint8_t kRecoveryJournalMagic = 0x52U;
+constexpr std::uint8_t kRecoveryJournalVersion = 1U;
+constexpr std::size_t kRecoveryJournalHeaderSize = 4U;
+constexpr std::size_t kRecoveryJournalCrcSize = 2U;
+constexpr std::size_t kRecoveryJournalMaxSize =
+    kRecoveryJournalHeaderSize +
+    64U * domain::kHistoryRecordSerializedSize + kRecoveryJournalCrcSize;
+
+std::size_t serializeRecoveryJournal(
+    const std::array<domain::HistoryRecord, 64>& records, std::size_t count,
+    std::uint8_t* data, std::size_t capacity) noexcept {
+  if (count > records.size()) {
+    return 0;
+  }
+  const auto size = kRecoveryJournalHeaderSize +
+                    count * domain::kHistoryRecordSerializedSize +
+                    kRecoveryJournalCrcSize;
+  if (capacity < size) {
+    return 0;
+  }
+
+  data[0] = kRecoveryJournalMagic;
+  data[1] = kRecoveryJournalVersion;
+  data[2] = static_cast<std::uint8_t>(count);
+  data[3] = 0U;
+  std::size_t offset = kRecoveryJournalHeaderSize;
+  for (std::size_t i = 0; i < count; ++i) {
+    const auto written = domain::serializeHistoryRecord(
+        records[i], data + offset, domain::kHistoryRecordSerializedSize);
+    if (written != domain::kHistoryRecordSerializedSize) {
+      return 0;
+    }
+    offset += written;
+  }
+
+  const auto crc = domain::historyRecordCrc16(data, size - kRecoveryJournalCrcSize);
+  data[size - 2U] = static_cast<std::uint8_t>(crc & 0xFFU);
+  data[size - 1U] = static_cast<std::uint8_t>((crc >> 8U) & 0xFFU);
+  return size;
+}
+
+bool loadRecoveryJournal(
+    const std::uint8_t* data, std::size_t size,
+    std::array<domain::HistoryRecord, 64>& records,
+    std::size_t& countOut) noexcept {
+  if (size < kRecoveryJournalHeaderSize + kRecoveryJournalCrcSize ||
+      data[0] != kRecoveryJournalMagic ||
+      data[1] != kRecoveryJournalVersion || data[3] != 0U) {
+    return false;
+  }
+
+  const auto count = static_cast<std::size_t>(data[2]);
+  const auto expectedSize = kRecoveryJournalHeaderSize +
+                            count * domain::kHistoryRecordSerializedSize +
+                            kRecoveryJournalCrcSize;
+  if (count > records.size() || size != expectedSize) {
+    return false;
+  }
+
+  const auto storedCrc = static_cast<std::uint16_t>(data[size - 2U]) |
+                         (static_cast<std::uint16_t>(data[size - 1U]) << 8U);
+  if (storedCrc !=
+      domain::historyRecordCrc16(data, size - kRecoveryJournalCrcSize)) {
+    return false;
+  }
+
+  std::size_t offset = kRecoveryJournalHeaderSize;
+  for (std::size_t i = 0; i < count; ++i) {
+    if (domain::loadHistoryRecord(data + offset,
+                                  domain::kHistoryRecordSerializedSize,
+                                  records[i]) != domain::HistoryLoadStatus::Ok) {
+      return false;
+    }
+    if (records[i].schemaVersion < domain::kHistorySchemaVersion &&
+        !domain::migrateHistoryRecord(records[i])) {
+      return false;
+    }
+    offset += domain::kHistoryRecordSerializedSize;
+  }
+  countOut = count;
+  return true;
+}
+
+}  // namespace
 
 RingHistoryStore::RingHistoryStore(SlotStorage& storage) noexcept
     : storage_(storage) {}
@@ -116,6 +202,68 @@ domain::HistoryLoadStatus RingHistoryStore::validateSlot(
 // ---------------------------------------------------------------------------
 // Recovery
 // ---------------------------------------------------------------------------
+bool RingHistoryStore::applyRecoveryJournal(
+    const std::array<domain::HistoryRecord, 64>& records,
+    std::size_t count) noexcept {
+  if (count > storage_.capacity() || count > records.size()) {
+    return false;
+  }
+
+  data::HistoryIndex rebuilt{};
+  rebuilt.schemaVersion = domain::kHistorySchemaVersion;
+  rebuilt.head = 0;
+  rebuilt.count = static_cast<std::uint32_t>(count);
+  for (std::size_t i = 0; i < count; ++i) {
+    std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
+    const auto size =
+        domain::serializeHistoryRecord(records[i], blob.data(), blob.size());
+    if (!storage_.writeRecord(i, blob.data(), size)) {
+      return false;
+    }
+    if (records[i].localRecordId >= rebuilt.nextLocalRecordId) {
+      rebuilt.nextLocalRecordId = records[i].localRecordId + 1;
+    }
+    if (records[i].sessionOrder >= rebuilt.nextSessionOrder) {
+      rebuilt.nextSessionOrder = records[i].sessionOrder + 1;
+    }
+  }
+
+  for (std::size_t slot = count; slot < storage_.capacity(); ++slot) {
+    if (!storage_.eraseRecord(slot)) {
+      return false;
+    }
+  }
+
+  index_ = rebuilt;
+  if (!persistIndex() || !storage_.eraseRecoveryJournal()) {
+    return false;
+  }
+  healthy_ = true;
+  return true;
+}
+
+bool RingHistoryStore::resumePendingRecoveryJournal(bool& handled) noexcept {
+  handled = false;
+  std::array<std::uint8_t, kRecoveryJournalMaxSize> journal{};
+  std::size_t journalSize = 0;
+  const auto status = storage_.readRecoveryJournal(
+      journal.data(), journal.size(), journalSize);
+  if (status == RecoveryJournalReadResult::Missing) {
+    return true;
+  }
+  if (status == RecoveryJournalReadResult::Error) {
+    return false;
+  }
+
+  handled = true;
+  std::array<domain::HistoryRecord, 64> records{};
+  std::size_t count = 0;
+  if (!loadRecoveryJournal(journal.data(), journalSize, records, count)) {
+    return false;
+  }
+  return applyRecoveryJournal(records, count);
+}
+
 bool RingHistoryStore::rebuildFromSlots() noexcept {
   // Keep the recovery buffer bounded even if a future backend exposes more
   // slots than the firmware's fixed history capacity.
@@ -123,24 +271,17 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
     return false;
   }
 
-  // Scan every slot, collecting valid records.
   std::array<domain::HistoryRecord, 64> found{};
   std::size_t foundCount = 0;
-
   for (std::size_t slot = 0; slot < storage_.capacity(); ++slot) {
     domain::HistoryRecord record;
     if (validateSlot(slot, record) == domain::HistoryLoadStatus::Ok) {
-      if (foundCount < found.size()) {
-        found[foundCount] = record;
-        ++foundCount;
-      }
+      found[foundCount++] = record;
     }
-    // Corrupt / unknown-newer / empty slots are skipped: one bad record must
-    // never take down the rest of the history.
   }
 
-  // Sort by (sessionOrder, localRecordId) to restore chronological order even
-  // though the ring index was lost. Small N (≤ capacity), insertion sort.
+  // Sort by identity/order, then collapse duplicates left by an interrupted
+  // recovery from an older firmware before staging the new transaction.
   for (std::size_t i = 1; i < foundCount; ++i) {
     const auto key = found[i];
     std::size_t j = i;
@@ -152,42 +293,25 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
     }
     found[j] = key;
   }
-
-  data::HistoryIndex rebuilt{};
-  rebuilt.schemaVersion = domain::kHistorySchemaVersion;
-  rebuilt.head = 0;
-  rebuilt.count = static_cast<std::uint32_t>(foundCount);
+  std::size_t uniqueCount = 0;
   for (std::size_t i = 0; i < foundCount; ++i) {
-    // Re-write each valid record into a contiguous slot so the rebuilt head
-    // and count describe the new layout deterministically.
-    std::array<std::uint8_t, domain::kHistoryRecordSerializedSize> blob{};
-    const auto size =
-        domain::serializeHistoryRecord(found[i], blob.data(), blob.size());
-    if (!storage_.writeRecord(i, blob.data(), size)) {
-      return false;
+    if (uniqueCount > 0 &&
+        found[uniqueCount - 1].sessionOrder == found[i].sessionOrder &&
+        found[uniqueCount - 1].localRecordId == found[i].localRecordId) {
+      continue;
     }
-
-    if (found[i].localRecordId >= rebuilt.nextLocalRecordId) {
-      rebuilt.nextLocalRecordId = found[i].localRecordId + 1;
-    }
-    if (found[i].sessionOrder >= rebuilt.nextSessionOrder) {
-      rebuilt.nextSessionOrder = found[i].sessionOrder + 1;
-    }
+    found[uniqueCount++] = found[i];
   }
+  foundCount = uniqueCount;
 
-  // Clear the remainder of the slot space.
-  for (std::size_t slot = foundCount; slot < storage_.capacity(); ++slot) {
-    if (!storage_.eraseRecord(slot)) {
-      return false;
-    }
-  }
-
-  index_ = rebuilt;
-  if (!persistIndex()) {
+  std::array<std::uint8_t, kRecoveryJournalMaxSize> journal{};
+  const auto journalSize = serializeRecoveryJournal(
+      found, foundCount, journal.data(), journal.size());
+  if (journalSize == 0 ||
+      !storage_.writeRecoveryJournal(journal.data(), journalSize)) {
     return false;
   }
-  healthy_ = true;
-  return true;
+  return applyRecoveryJournal(found, foundCount);
 }
 
 // ---------------------------------------------------------------------------
@@ -196,8 +320,17 @@ bool RingHistoryStore::rebuildFromSlots() noexcept {
 bool RingHistoryStore::begin() noexcept {
   healthy_ = false;
   index_ = data::HistoryIndex{};
-  if (!storage_.begin()) {
+  if (!storage_.begin() || storage_.capacity() == 0 ||
+      storage_.capacity() > 64U) {
     return false;
+  }
+
+  bool journalHandled = false;
+  if (!resumePendingRecoveryJournal(journalHandled)) {
+    return false;
+  }
+  if (journalHandled) {
+    return healthy_;
   }
 
   if (loadIndex() && activeIndexMatchesRecords()) {
@@ -205,9 +338,8 @@ bool RingHistoryStore::begin() noexcept {
     return true;
   }
 
-  // Missing, corrupt, stale, or inconsistent index → full scan rebuild. A fresh device has
-  // no records, so rebuild finds nothing and healthy_ becomes true with an
-  // empty store.
+  // Missing, corrupt, stale, or inconsistent index → stage and replay a full
+  // scan rebuild. A fresh device gets an empty, valid index.
   return rebuildFromSlots();
 }
 

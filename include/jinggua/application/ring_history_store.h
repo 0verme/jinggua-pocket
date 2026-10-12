@@ -56,6 +56,10 @@ class RingHistoryStore final : public HistoryStore {
   // Returns true when the store is usable afterwards (even with zero
   // records); false would mean the backend itself is unreadable.
   bool rebuildFromSlots() noexcept;
+  bool applyRecoveryJournal(
+      const std::array<domain::HistoryRecord, 64>& records,
+      std::size_t count) noexcept;
+  bool resumePendingRecoveryJournal(bool& handled) noexcept;
 
   // Persist the current index to storage.
   bool persistIndex() noexcept;

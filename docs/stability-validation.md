@@ -6,7 +6,7 @@ Issue #17 的软件加固与物理设备验收分开记录。Native/PlatformIO �
 
 - 启动时记录 ESP-IDF reset reason 和数值码；分类包括 panic、interrupt/task/other watchdog、brownout、software reset、power-on、deep-sleep 和 unknown。应用不重配置、关闭或自行喂养 framework watchdog，避免掩盖卡死。
 - 历史存储在任何 NVS 读写前显式打开 `jinggua` Preferences namespace。初始化失败时 `HistoryStore::begin()` 返回失败，history 操作 fail closed，不阻断本地起卦。
-- record/index CRC 与损坏恢复由 Native tests 覆盖；启动校验 active records 顺序及 active range 外的孤儿记录，以恢复“记录写入成功、index 提交失败”的情况。恢复写入、擦除或 index 持久化失败时不宣称 store 可用，之后一次启动可重试恢复。
+- record/index CRC 与损坏恢复由 Native tests 覆盖；启动校验 active records 顺序及 active range 外的孤儿记录，以恢复“记录写入成功、index 提交失败”的情况。重排记录前先将完整恢复快照原子写入 NVS `recovery` journal；部分重排、擦除或 index 持久化失败后下次启动从 journal 幂等重放，不依赖已被覆盖的源 slot。
 - Wi-Fi/API 保持有限超时、错误分类、手动单次重试；网络失败不丢弃本地起卦结果。
 - ShakeDetector、PowerManager、按钮唤醒抑制、音频与显示状态恢复的应用逻辑有 Native coverage；它们不是物理传感器/屏幕测量。
 

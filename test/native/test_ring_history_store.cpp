@@ -227,8 +227,39 @@ void runRingHistoryStoreTests(TestRunner& runner) {
   }
 
   // -----------------------------------------------------------------------
-  // Recovery write failures are reported; a later boot can retry recovery.
-  // -----------------------------------------------------------------------
+  // Partial compaction is replayed from the staging journal without data loss.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 5; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failRecordWriteAfter(1);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+      auto rec = makeSimpleRecord(0, 6, 7);
+      EXPECT(runner, !store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(4));
+      for (std::size_t i = 0; i < 4; ++i) {
+        HistoryRecord loaded;
+        EXPECT(runner, store.get(i, loaded));
+        EXPECT_EQ(runner, loaded.localRecordId,
+                  static_cast<std::uint32_t>(i + 2));
+      }
+    }
+  }
+
+  // Failure to persist the staging journal leaves all source slots untouched.
   {
     InMemorySlotStorage storage(4);
     {
@@ -240,26 +271,19 @@ void runRingHistoryStoreTests(TestRunner& runner) {
       }
     }
     storage.corruptIndexPayload();
-    storage.failNextRecordWrite();
+    storage.failNextRecoveryJournalWrite();
     {
       RingHistoryStore store(storage);
       EXPECT(runner, !store.begin());
-      auto rec = makeSimpleRecord(0, 3, 7);
-      EXPECT(runner, !store.add(rec));
     }
     {
       RingHistoryStore store(storage);
       EXPECT(runner, store.begin());
       EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
-      HistoryRecord loaded;
-      EXPECT(runner, store.get(0, loaded));
-      EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(1));
-      EXPECT(runner, store.get(1, loaded));
-      EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(2));
     }
   }
 
-  // Index persistence failure is also reported and retried from intact slots.
+  // Index persistence failure is also reported and retried from the journal.
   {
     InMemorySlotStorage storage(4);
     {
@@ -272,6 +296,11 @@ void runRingHistoryStoreTests(TestRunner& runner) {
     }
     storage.corruptIndexPayload();
     storage.failNextIndexWrite();
+    storage.failNextRecoveryJournalErase();
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+    }
     {
       RingHistoryStore store(storage);
       EXPECT(runner, !store.begin());

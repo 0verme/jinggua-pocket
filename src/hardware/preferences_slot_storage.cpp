@@ -21,6 +21,7 @@ Preferences& preferences() {
 
 constexpr const char* kNamespace = "jinggua";
 constexpr const char* kIndexKey = "idx";
+constexpr const char* kRecoveryJournalKey = "recovery";
 
 // Preferences key names are capped at 15 characters ("rec_000" is 7).
 void makeSlotKeyInternal(char* buffer, std::size_t slot) noexcept {
@@ -151,6 +152,62 @@ bool PreferencesSlotStorage::writeIndex(const std::uint8_t* data,
 #else
   (void)data;
   (void)size;
+  return false;
+#endif
+}
+
+application::RecoveryJournalReadResult
+PreferencesSlotStorage::readRecoveryJournal(std::uint8_t* data,
+                                            std::size_t capacity,
+                                            std::size_t& sizeOut) const noexcept {
+#if defined(ARDUINO)
+  if (!started_) {
+    return application::RecoveryJournalReadResult::Error;
+  }
+  auto& prefs = preferences();
+  if (!prefs.isKey(kRecoveryJournalKey)) {
+    return application::RecoveryJournalReadResult::Missing;
+  }
+  const std::size_t stored = prefs.getBytesLength(kRecoveryJournalKey);
+  if (stored == 0 || stored > capacity) {
+    return application::RecoveryJournalReadResult::Error;
+  }
+  const std::size_t read =
+      prefs.getBytes(kRecoveryJournalKey, data, stored);
+  sizeOut = read;
+  return read == stored ? application::RecoveryJournalReadResult::Ready
+                        : application::RecoveryJournalReadResult::Error;
+#else
+  (void)data;
+  (void)capacity;
+  (void)sizeOut;
+  return application::RecoveryJournalReadResult::Error;
+#endif
+}
+
+bool PreferencesSlotStorage::writeRecoveryJournal(
+    const std::uint8_t* data, std::size_t size) noexcept {
+#if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
+  auto& prefs = preferences();
+  return prefs.putBytes(kRecoveryJournalKey, data, size) == size;
+#else
+  (void)data;
+  (void)size;
+  return false;
+#endif
+}
+
+bool PreferencesSlotStorage::eraseRecoveryJournal() noexcept {
+#if defined(ARDUINO)
+  if (!started_) {
+    return false;
+  }
+  auto& prefs = preferences();
+  return !prefs.isKey(kRecoveryJournalKey) || prefs.remove(kRecoveryJournalKey);
+#else
   return false;
 #endif
 }

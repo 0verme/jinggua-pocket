@@ -12,6 +12,12 @@ namespace jinggua::application {
 // to back this with NVS/Preferences, LittleFS, or a test double — the ring
 // semantics, validation and recovery all live in RingHistoryStore, which
 // only ever talks through this interface.
+enum class RecoveryJournalReadResult : std::uint8_t {
+  Missing,
+  Ready,
+  Error,
+};
+
 class SlotStorage {
  public:
   virtual ~SlotStorage() = default;
@@ -44,6 +50,15 @@ class SlotStorage {
   // Writes the index blob, overwriting any previous content.
   virtual bool writeIndex(const std::uint8_t* data,
                           std::size_t size) noexcept = 0;
+
+  // A recovery journal is an atomic staging copy used while rebuilding slots.
+  // Missing means no transaction is pending; Error must fail closed.
+  virtual RecoveryJournalReadResult readRecoveryJournal(
+      std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept = 0;
+  virtual bool writeRecoveryJournal(const std::uint8_t* data,
+                                    std::size_t size) noexcept = 0;
+  virtual bool eraseRecoveryJournal() noexcept = 0;
 };
 
 }  // namespace jinggua::application

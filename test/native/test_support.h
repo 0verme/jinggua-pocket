@@ -77,8 +77,18 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   bool begin() noexcept override { return beginResult_; }
 
   void setBeginResult(bool result) noexcept { beginResult_ = result; }
-  void failNextRecordWrite() noexcept { failNextRecordWrite_ = true; }
+  void failNextRecordWrite() noexcept { failRecordWriteAfter(0); }
+  void failRecordWriteAfter(std::size_t successfulWrites) noexcept {
+    recordWriteFailureEnabled_ = true;
+    recordWritesBeforeFailure_ = successfulWrites;
+  }
   void failNextIndexWrite() noexcept { failNextIndexWrite_ = true; }
+  void failNextRecoveryJournalWrite() noexcept {
+    failNextRecoveryJournalWrite_ = true;
+  }
+  void failNextRecoveryJournalErase() noexcept {
+    failNextRecoveryJournalErase_ = true;
+  }
 
   bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
                   std::size_t& sizeOut) const noexcept override {
@@ -95,9 +105,12 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
 
   bool writeRecord(std::size_t slot, const std::uint8_t* data,
                    std::size_t size) noexcept override {
-    if (failNextRecordWrite_) {
-      failNextRecordWrite_ = false;
-      return false;
+    if (recordWriteFailureEnabled_) {
+      if (recordWritesBeforeFailure_ == 0) {
+        recordWriteFailureEnabled_ = false;
+        return false;
+      }
+      --recordWritesBeforeFailure_;
     }
     if (slot >= records_.size() || size > records_[slot].size()) {
       return false;
@@ -135,6 +148,43 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
     }
     std::memcpy(index_.data(), data, size);
     indexSize_ = size;
+    return true;
+  }
+
+  jinggua::application::RecoveryJournalReadResult readRecoveryJournal(
+      std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override {
+    if (recoveryJournalSize_ == 0) {
+      return jinggua::application::RecoveryJournalReadResult::Missing;
+    }
+    if (capacity < recoveryJournalSize_) {
+      return jinggua::application::RecoveryJournalReadResult::Error;
+    }
+    std::memcpy(data, recoveryJournal_.data(), recoveryJournalSize_);
+    sizeOut = recoveryJournalSize_;
+    return jinggua::application::RecoveryJournalReadResult::Ready;
+  }
+
+  bool writeRecoveryJournal(const std::uint8_t* data,
+                            std::size_t size) noexcept override {
+    if (failNextRecoveryJournalWrite_) {
+      failNextRecoveryJournalWrite_ = false;
+      return false;
+    }
+    if (size > recoveryJournal_.size()) {
+      return false;
+    }
+    std::memcpy(recoveryJournal_.data(), data, size);
+    recoveryJournalSize_ = size;
+    return true;
+  }
+
+  bool eraseRecoveryJournal() noexcept override {
+    if (failNextRecoveryJournalErase_) {
+      failNextRecoveryJournalErase_ = false;
+      return false;
+    }
+    recoveryJournalSize_ = 0;
     return true;
   }
 
@@ -182,9 +232,14 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   std::vector<std::size_t> sizes_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
+  std::array<std::uint8_t, 2048> recoveryJournal_{};
+  std::size_t recoveryJournalSize_{0};
+  std::size_t recordWritesBeforeFailure_{0};
   bool beginResult_{true};
-  bool failNextRecordWrite_{false};
+  bool recordWriteFailureEnabled_{false};
   bool failNextIndexWrite_{false};
+  bool failNextRecoveryJournalWrite_{false};
+  bool failNextRecoveryJournalErase_{false};
 };
 
 // Fake AudioController for StateMachine tests. It models the hardware

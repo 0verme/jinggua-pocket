@@ -12,9 +12,9 @@ namespace jinggua::application {
 // Serialized record: 26 bytes (kHistoryRecordSerializedSize).
 // Preferences (NVS) per-entry cost: 32-byte key/entry header + value slot
 // padded to a 32-byte boundary → ≈ 96 bytes per record on Flash.
-// 64 records × 96 B ≈ 6.1 KB plus one meta entry ≈ 96 B → ≈ 6.2 KB total.
-// The StickS3 default_8MB.csv NVS partition is 24 KB, so history uses
-// roughly a quarter of it, leaving ample headroom for future sync state.
+// 64 records × 96 B ≈ 6.1 KB plus metadata. Recovery may temporarily stage
+// at most 64 serialized records (1,670 B) in one journal key. The StickS3
+// default_8MB.csv NVS partition is 24 KB, leaving headroom after recovery.
 // Write frequency: exactly one record + one meta write per completed
 // divination (never per line, never per render), so NVS wear is bounded by
 // how often the user actually casts.
