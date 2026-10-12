@@ -57,8 +57,11 @@ class FakeFirmwareUpdateClient final : public FirmwareUpdateClient {
 
   void cancel() noexcept override {
     ++cancelCount;
-    current.state = FirmwareUpdateState::Cancelled;
-    current.error = FirmwareUpdateError::None;
+    if (current.state == FirmwareUpdateState::Checking ||
+        current.state == FirmwareUpdateState::Downloading) {
+      current.state = FirmwareUpdateState::Cancelled;
+      current.error = FirmwareUpdateError::None;
+    }
   }
 
   FirmwareUpdateStatus status() const noexcept override { return current; }
@@ -91,6 +94,15 @@ void enterOtaPrompt(jinggua::application::StateMachine& stateMachine,
   wifi.setState(jinggua::application::WifiState::Connected);
   stateMachine.handleInput(InputEvent::PrimaryClick);  // Connected
   stateMachine.handleInput(InputEvent::LongPress);     // Explicit OTA prompt
+}
+
+void startFakeInstall(jinggua::application::StateMachine& stateMachine,
+                      FakeFirmwareUpdateClient& firmware) {
+  stateMachine.handleInput(InputEvent::PrimaryClick);  // Check
+  firmware.setState(FirmwareUpdateState::Available,
+                    FirmwareUpdateError::None, 0, "1.2.3");
+  stateMachine.update(1);
+  stateMachine.handleInput(InputEvent::PrimaryClick);  // Install
 }
 
 void testManifestParsing(TestRunner& runner) {
@@ -242,6 +254,61 @@ void testExplicitUpdateFlow(TestRunner& runner) {
   EXPECT_EQ(runner, historyAfter.lineTotals[0], historyBefore.lineTotals[0]);
 }
 
+void testFinalizationCannotBeCancelled(TestRunner& runner) {
+  FakeWifiController wifi;
+  FakeFirmwareUpdateClient firmware;
+  SequenceRandomProvider random(std::vector<jinggua::domain::CoinSide>(
+      18, jinggua::domain::CoinSide::Back));
+  jinggua::application::DivinationSession session(random);
+  jinggua::application::StateMachine stateMachine(session, wifi);
+  stateMachine.setFirmwareUpdateClient(firmware);
+  enterOtaPrompt(stateMachine, wifi);
+  startFakeInstall(stateMachine, firmware);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaDownloading);
+
+  firmware.setState(FirmwareUpdateState::Finalizing,
+                    FirmwareUpdateError::None, 100, "1.2.3");
+  // Exercise the UI/input race: the worker has closed cancellation but the
+  // state machine has not yet polled the new status.
+  stateMachine.handleInput(InputEvent::SecondaryClick);
+  EXPECT_EQ(runner, firmware.cancelCount, 1);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaFinalizing);
+  EXPECT(runner, !stateMachine.sleepAllowed());
+  stateMachine.handleInput(InputEvent::SecondaryClick);
+  EXPECT_EQ(runner, firmware.cancelCount, 1);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaFinalizing);
+
+  firmware.setState(FirmwareUpdateState::Rebooting,
+                    FirmwareUpdateError::None, 100, "1.2.3");
+  stateMachine.update(2);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaRebooting);
+  stateMachine.handleInput(InputEvent::SecondaryClick);
+  EXPECT_EQ(runner, firmware.cancelCount, 1);
+}
+
+void testFinalizationFailureIsReported(TestRunner& runner) {
+  FakeWifiController wifi;
+  FakeFirmwareUpdateClient firmware;
+  SequenceRandomProvider random(std::vector<jinggua::domain::CoinSide>(
+      18, jinggua::domain::CoinSide::Back));
+  jinggua::application::DivinationSession session(random);
+  jinggua::application::StateMachine stateMachine(session, wifi);
+  stateMachine.setFirmwareUpdateClient(firmware);
+  enterOtaPrompt(stateMachine, wifi);
+  startFakeInstall(stateMachine, firmware);
+
+  firmware.setState(FirmwareUpdateState::Finalizing,
+                    FirmwareUpdateError::None, 100, "1.2.3");
+  stateMachine.update(2);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaFinalizing);
+  firmware.setState(FirmwareUpdateState::Failed,
+                    FirmwareUpdateError::ActivationFailed);
+  stateMachine.update(3);
+  EXPECT_EQ(runner, stateMachine.state(), AppState::OtaFailed);
+  EXPECT_EQ(runner, stateMachine.lastFirmwareUpdateStatus().error,
+            FirmwareUpdateError::ActivationFailed);
+}
+
 void testOfflineAndFailureRecovery(TestRunner& runner) {
   FakeWifiController wifi;
   FakeFirmwareUpdateClient firmware;
@@ -281,5 +348,7 @@ void testOfflineAndFailureRecovery(TestRunner& runner) {
 void runOtaTests(TestRunner& runner) {
   testManifestParsing(runner);
   testExplicitUpdateFlow(runner);
+  testFinalizationCannotBeCancelled(runner);
+  testFinalizationFailureIsReported(runner);
   testOfflineAndFailureRecovery(runner);
 }

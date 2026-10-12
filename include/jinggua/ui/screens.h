@@ -44,6 +44,7 @@ void renderOtaAvailable(hardware::Display& display,
                         const application::FirmwareUpdateStatus& status) noexcept;
 void renderOtaDownloading(hardware::Display& display,
                           const application::FirmwareUpdateStatus& status) noexcept;
+void renderOtaFinalizing(hardware::Display& display) noexcept;
 void renderOtaCancelling(hardware::Display& display) noexcept;
 void renderOtaCancelled(hardware::Display& display) noexcept;
 void renderOtaRebooting(hardware::Display& display) noexcept;

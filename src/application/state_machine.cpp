@@ -54,6 +54,8 @@ const char* appStateName(AppState state) noexcept {
       return "OTA_AVAILABLE";
     case AppState::OtaDownloading:
       return "OTA_DOWNLOADING";
+    case AppState::OtaFinalizing:
+      return "OTA_FINALIZING";
     case AppState::OtaCancelling:
       return "OTA_CANCELLING";
     case AppState::OtaCancelled:
@@ -295,6 +297,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       }
       break;
     case AppState::OtaCancelling:
+    case AppState::OtaFinalizing:
     case AppState::OtaRebooting:
       break;
   }
@@ -312,6 +315,7 @@ bool StateMachine::sleepAllowed() const noexcept {
     case AppState::OtaChecking:
     case AppState::OtaDownloading:
     case AppState::OtaCancelling:
+    case AppState::OtaFinalizing:
     case AppState::OtaRebooting:
       return false;
     default:
@@ -322,7 +326,8 @@ bool StateMachine::sleepAllowed() const noexcept {
 void StateMachine::update(std::uint32_t nowMs) noexcept {
   if (state_ == AppState::OtaChecking ||
       state_ == AppState::OtaDownloading ||
-      state_ == AppState::OtaCancelling) {
+      state_ == AppState::OtaCancelling ||
+      state_ == AppState::OtaFinalizing) {
     updateFirmwareOperation();
     return;
   }
@@ -487,7 +492,20 @@ void StateMachine::cancelFirmwareOperation() noexcept {
   }
   firmwareUpdateClient_->cancel();
   lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
-  transitionTo(AppState::OtaCancelling);
+  switch (lastFirmwareUpdateStatus_.state) {
+    case FirmwareUpdateState::Finalizing:
+      transitionTo(AppState::OtaFinalizing);
+      break;
+    case FirmwareUpdateState::Rebooting:
+      transitionTo(AppState::OtaRebooting);
+      break;
+    case FirmwareUpdateState::Failed:
+      transitionTo(AppState::OtaFailed);
+      break;
+    default:
+      transitionTo(AppState::OtaCancelling);
+      break;
+  }
 }
 
 void StateMachine::updateFirmwareOperation() noexcept {
@@ -525,7 +543,10 @@ void StateMachine::updateFirmwareOperation() noexcept {
       break;
     case AppState::OtaDownloading:
       if (lastFirmwareUpdateStatus_.state ==
-          FirmwareUpdateState::Rebooting) {
+          FirmwareUpdateState::Finalizing) {
+        transitionTo(AppState::OtaFinalizing);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Rebooting) {
         transitionTo(AppState::OtaRebooting);
       } else if (lastFirmwareUpdateStatus_.state ==
                  FirmwareUpdateState::Failed) {
@@ -544,8 +565,22 @@ void StateMachine::updateFirmwareOperation() noexcept {
                  FirmwareUpdateState::Failed) {
         transitionTo(AppState::OtaFailed);
       } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Finalizing) {
+        transitionTo(AppState::OtaFinalizing);
+      } else if (lastFirmwareUpdateStatus_.state ==
                  FirmwareUpdateState::Rebooting) {
         transitionTo(AppState::OtaRebooting);
+      }
+      break;
+    case AppState::OtaFinalizing:
+      if (lastFirmwareUpdateStatus_.state == FirmwareUpdateState::Rebooting) {
+        transitionTo(AppState::OtaRebooting);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Failed) {
+        transitionTo(AppState::OtaFailed);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Cancelled) {
+        transitionTo(AppState::OtaCancelled);
       }
       break;
     default:
