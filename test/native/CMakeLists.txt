@@ -25,6 +25,7 @@ add_executable(jinggua_native_tests
   test_state_machine.cpp
   test_wifi.cpp
   test_api.cpp
+  test_ota.cpp
   test_transform.cpp
   test_ui_layout.cpp
   test_yao.cpp
@@ -56,6 +57,8 @@ add_executable(jinggua_native_tests
   ../../src/hardware/wifi_manager.cpp
   ../../src/hardware/https_transport.cpp
   ../../src/application/jinggua_api_client.cpp
+  ../../src/application/ota_update.cpp
+  ../../src/hardware/ota_update.cpp
   ../../src/ui/renderer.cpp
   ../../src/ui/screens.cpp
   ../../src/ui/coin_animation.cpp

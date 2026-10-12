@@ -190,6 +190,26 @@ Windows assigns the USB serial COM port dynamically. The project does not requir
   编译/离线运行，设置页提示「未配置 Wi-Fi」。
 - 日志使用 `[WiFi]` 前缀，不打印密码；UI 只显示 SSID。
 
+## 安全 OTA（Issue #16）
+
+当前 StickS3 `m5stack-sticks3` 使用 `default_8MB.csv` 与 `qio_opi` memory type。
+已检查固定 Arduino ESP32-S3 SDK config：`CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=1`；
+`default_8MB.csv` 提供 `ota_0` / `ota_1` 两个 0x330000-byte app slot、独立 `otadata`
+与 NVS。`tools/check_ota_support.py` 在 PlatformIO build 后核验这些配置和固件大小；
+不能仅以应用编译宏替代 bootloader rollback 检查。
+
+OTA client 只在 Connected 页用户长按并确认后启动。HTTPS 默认关闭 redirect follow，
+最多跟随三次，并限制到 GitHub 同仓库 Release manifest 或 GitHub release-assets hosts；
+manifest 版本/URL、镜像长度、SHA-256 和 ESP image 校验均通过后才设置 inactive slot。
+新镜像完成 display 与 state-machine 初始化后确认 boot；pending image 若基础启动失败则
+请求 ESP bootloader rollback。NVS 历史与当前 app slot 不参与写入。
+
+构建环境的 `JINGGUA_OTA_ROOT_CA` 必须是 PEM trust anchor；缺少时 fail closed，
+普通固件仍可编译和离线使用。Release 还需注入 `JINGGUA_FIRMWARE_VERSION` 并同时
+发布 `firmware.bin` 与 `firmware-manifest.txt`，详见 [`ota.md`](ota.md)。仓库暂无
+GitHub Release，且当前没有可用 StickS3，因此真实更新、中断/掉电和 rollback 均为
+`PENDING_HARDWARE_VALIDATION`，不是软件门禁通过的替代项。
+
 ### Wi-Fi Provisioning TODO
 
 本 Issue 只完成连接流程，未实现正式的凭据下发。未来候选方案（另行评估）：

@@ -2,6 +2,7 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 
 #include "jinggua/domain/history_record.h"
 
@@ -43,6 +44,24 @@ const char* appStateName(AppState state) noexcept {
       return "UPLOAD_SUCCESS";
     case AppState::UploadFailed:
       return "UPLOAD_FAILED";
+    case AppState::OtaPrompt:
+      return "OTA_PROMPT";
+    case AppState::OtaChecking:
+      return "OTA_CHECKING";
+    case AppState::OtaUpToDate:
+      return "OTA_UP_TO_DATE";
+    case AppState::OtaAvailable:
+      return "OTA_AVAILABLE";
+    case AppState::OtaDownloading:
+      return "OTA_DOWNLOADING";
+    case AppState::OtaCancelling:
+      return "OTA_CANCELLING";
+    case AppState::OtaCancelled:
+      return "OTA_CANCELLED";
+    case AppState::OtaRebooting:
+      return "OTA_REBOOTING";
+    case AppState::OtaFailed:
+      return "OTA_FAILED";
   }
   return "UNKNOWN";
 }
@@ -65,6 +84,11 @@ StateMachine::StateMachine(DivinationSession& session, WifiController& wifi,
 void StateMachine::setAudioController(AudioController& audio) noexcept {
   audio_ = &audio;
   audio_->setEnabled(soundEnabled_);
+}
+
+void StateMachine::setFirmwareUpdateClient(
+    FirmwareUpdateClient& client) noexcept {
+  firmwareUpdateClient_ = &client;
 }
 
 void StateMachine::setSoundEnabled(bool enabled) noexcept {
@@ -195,6 +219,8 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(AppState::Settings);
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(AppState::Settings);
+      } else if (event == InputEvent::LongPress) {
+        transitionTo(AppState::OtaPrompt);
       }
       break;
     case AppState::WifiFailed:
@@ -233,6 +259,44 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(uploadReturnState_);
       }
       break;
+    case AppState::OtaPrompt:
+      if (event == InputEvent::PrimaryClick) {
+        requestFirmwareCheck();
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
+    case AppState::OtaChecking:
+    case AppState::OtaDownloading:
+      if (event == InputEvent::SecondaryClick) {
+        cancelFirmwareOperation();
+      }
+      break;
+    case AppState::OtaAvailable:
+      if (event == InputEvent::PrimaryClick) {
+        requestFirmwareInstall();
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
+    case AppState::OtaUpToDate:
+    case AppState::OtaCancelled:
+      if (event == InputEvent::PrimaryClick) {
+        transitionTo(AppState::OtaPrompt);
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
+    case AppState::OtaFailed:
+      if (event == InputEvent::PrimaryClick) {
+        requestFirmwareCheck();
+      } else if (event == InputEvent::SecondaryClick) {
+        transitionTo(AppState::Welcome);
+      }
+      break;
+    case AppState::OtaCancelling:
+    case AppState::OtaRebooting:
+      break;
   }
 }
 
@@ -245,6 +309,10 @@ bool StateMachine::sleepAllowed() const noexcept {
     case AppState::ResetConfirm:
     case AppState::WifiConnecting:
     case AppState::WifiConnected:
+    case AppState::OtaChecking:
+    case AppState::OtaDownloading:
+    case AppState::OtaCancelling:
+    case AppState::OtaRebooting:
       return false;
     default:
       return true;
@@ -252,6 +320,13 @@ bool StateMachine::sleepAllowed() const noexcept {
 }
 
 void StateMachine::update(std::uint32_t nowMs) noexcept {
+  if (state_ == AppState::OtaChecking ||
+      state_ == AppState::OtaDownloading ||
+      state_ == AppState::OtaCancelling) {
+    updateFirmwareOperation();
+    return;
+  }
+
   if (state_ == AppState::Uploading) {
     if (!uploadStarted_) {
       if (wifi_ == nullptr) {
@@ -345,6 +420,136 @@ void StateMachine::persistIfComplete() noexcept {
   auto record = domain::makeHistoryRecord(*result);
   if (record.has_value() && history_->add(*record)) {
     localRecordId_ = record->localRecordId;
+  }
+}
+
+void StateMachine::requestFirmwareCheck() noexcept {
+  if (wifi_ == nullptr || wifi_->state() != WifiState::Connected) {
+    lastFirmwareUpdateStatus_ = FirmwareUpdateStatus{};
+    lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+    lastFirmwareUpdateStatus_.error = FirmwareUpdateError::Offline;
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+  if (firmwareUpdateClient_ == nullptr) {
+    lastFirmwareUpdateStatus_ = FirmwareUpdateStatus{};
+    lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+    lastFirmwareUpdateStatus_.error = FirmwareUpdateError::NotConfigured;
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+  if (!firmwareUpdateClient_->beginCheck()) {
+    lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+    if (lastFirmwareUpdateStatus_.state != FirmwareUpdateState::Failed) {
+      lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+      lastFirmwareUpdateStatus_.error =
+          FirmwareUpdateError::ResourceUnavailable;
+    }
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+  lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+  transitionTo(AppState::OtaChecking);
+}
+
+void StateMachine::requestFirmwareInstall() noexcept {
+  if (firmwareUpdateClient_ == nullptr) {
+    lastFirmwareUpdateStatus_ = FirmwareUpdateStatus{};
+    lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+    lastFirmwareUpdateStatus_.error = FirmwareUpdateError::NotConfigured;
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+  if (!firmwareUpdateClient_->beginInstall()) {
+    lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+    if (lastFirmwareUpdateStatus_.state == FirmwareUpdateState::Available) {
+      // The manifest task may still be releasing its one-shot worker after it
+      // published the result. Stay on the confirmation screen so a later
+      // explicit press can start the install without a false failure.
+      transitionTo(AppState::OtaAvailable);
+      return;
+    }
+    if (lastFirmwareUpdateStatus_.state != FirmwareUpdateState::Failed) {
+      lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+      lastFirmwareUpdateStatus_.error =
+          FirmwareUpdateError::ResourceUnavailable;
+    }
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+  lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+  transitionTo(AppState::OtaDownloading);
+}
+
+void StateMachine::cancelFirmwareOperation() noexcept {
+  if (firmwareUpdateClient_ == nullptr) {
+    return;
+  }
+  firmwareUpdateClient_->cancel();
+  lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+  transitionTo(AppState::OtaCancelling);
+}
+
+void StateMachine::updateFirmwareOperation() noexcept {
+  if (firmwareUpdateClient_ == nullptr) {
+    lastFirmwareUpdateStatus_ = FirmwareUpdateStatus{};
+    lastFirmwareUpdateStatus_.state = FirmwareUpdateState::Failed;
+    lastFirmwareUpdateStatus_.error = FirmwareUpdateError::NotConfigured;
+    transitionTo(AppState::OtaFailed);
+    return;
+  }
+
+  const auto previousStatus = lastFirmwareUpdateStatus_;
+  lastFirmwareUpdateStatus_ = firmwareUpdateClient_->status();
+  if (previousStatus.progressPercent !=
+          lastFirmwareUpdateStatus_.progressPercent ||
+      std::strcmp(previousStatus.version, lastFirmwareUpdateStatus_.version) !=
+          0) {
+    dirty_ = true;
+  }
+
+  switch (state_) {
+    case AppState::OtaChecking:
+      if (lastFirmwareUpdateStatus_.state == FirmwareUpdateState::Available) {
+        transitionTo(AppState::OtaAvailable);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::UpToDate) {
+        transitionTo(AppState::OtaUpToDate);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Failed) {
+        transitionTo(AppState::OtaFailed);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Cancelled) {
+        transitionTo(AppState::OtaCancelled);
+      }
+      break;
+    case AppState::OtaDownloading:
+      if (lastFirmwareUpdateStatus_.state ==
+          FirmwareUpdateState::Rebooting) {
+        transitionTo(AppState::OtaRebooting);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Failed) {
+        transitionTo(AppState::OtaFailed);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Cancelled) {
+        transitionTo(AppState::OtaCancelled);
+      }
+      break;
+    case AppState::OtaCancelling:
+      if (lastFirmwareUpdateStatus_.state == FirmwareUpdateState::Cancelled ||
+          lastFirmwareUpdateStatus_.state == FirmwareUpdateState::Available ||
+          lastFirmwareUpdateStatus_.state == FirmwareUpdateState::UpToDate) {
+        transitionTo(AppState::OtaCancelled);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Failed) {
+        transitionTo(AppState::OtaFailed);
+      } else if (lastFirmwareUpdateStatus_.state ==
+                 FirmwareUpdateState::Rebooting) {
+        transitionTo(AppState::OtaRebooting);
+      }
+      break;
+    default:
+      break;
   }
 }
 

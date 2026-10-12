@@ -36,6 +36,13 @@ reconnect。Wi-Fi 连接成功后按 B 进入设置，再按 B 返回首页，�
 WIFI_CONNECTING 的 SecondaryClick 取消连接，WIFI_CONNECTED 的 PrimaryClick
 关闭 Wi-Fi，失败/超时状态只允许用户按 A 重试或按 B 返回设置。
 
+## OTA 状态流
+
+`WifiConnected` 长按进入 `OtaPrompt`，按 A 才进入 `OtaChecking`；有更新时还需在
+`OtaAvailable` 再按 A 才下载。下载/检查按 B 请求 `OtaCancelling`，任务确认停止后
+进入 `OtaCancelled`。失败只在用户按 A 后重试。检查与下载均不创建/清除 session 或
+History；开机和普通 Wi-Fi 连接不自动检查。
+
 ## 状态说明
 
 | State | 含义 | 关键输入 |
@@ -54,9 +61,18 @@ WIFI_CONNECTING 的 SecondaryClick 取消连接，WIFI_CONNECTED 的 PrimaryClic
 | `History` | 离线历史浏览 | A/B 移动；长按 → `Welcome` |
 | `Settings` | Wi-Fi 设置 | A → 连接/查看连接；B → `Welcome` |
 | `WifiConnecting` | 异步连接中 | B → 关闭 Wi-Fi 并返回设置 |
-| `WifiConnected` | Wi-Fi 已连接 | A → 关闭；B → 设置 |
+| `WifiConnected` | Wi-Fi 已连接 | A → 关闭；B → 设置；长按 → OTA 确认页 |
 | `WifiFailed` | 连接失败 | A → 手动重试；B → 设置 |
 | `WifiTimeout` | 连接超时 | A → 手动重试；B → 设置 |
+| `OtaPrompt` | 用户主动更新确认页 | A → 检查；B → Welcome |
+| `OtaChecking` | 单次 HTTPS manifest 检查 | B → 取消；`update()` → 最新/可用/失败 |
+| `OtaUpToDate` | 固件已是最新 | A → 手动再查；B → Welcome |
+| `OtaAvailable` | 已验证的版本信息 | A → 下载/安装；B → Welcome |
+| `OtaDownloading` | 单次受限固件下载/写 inactive slot | B → 取消；`update()` 驱动进度 |
+| `OtaCancelling` | 等待下载任务确认停止 | 忽略输入；完成后 → `OtaCancelled` |
+| `OtaCancelled` | 操作已取消，当前 slot 不切换 | A → 再查；B → Welcome |
+| `OtaRebooting` | SHA/ESP image 校验通过，新 slot 已激活 | 忽略输入；设备重启 |
+| `OtaFailed` | 错误分类，不修改当前运行槽 | A → 手动重试；B → Welcome |
 
 ## Offline First 不变量
 
@@ -107,8 +123,8 @@ Active ──30s idle──> Dim ──60s idle──> Display Off ──300s id
 - `Display Off` 关闭显示输出但 MCU 仍运行，IMU 降频轮询；
 - `Light Sleep` 停止普通 IMU polling，硬件 adapter 等待 BtnA/BtnB wake；
 - `StateMachine::sleepAllowed()` 在 coin animation、`ResetConfirm`、
-  `WifiConnecting` 和 `WifiConnected` 期间返回 false，PowerManager 保持
-  `Active`；
+  `WifiConnecting`、`WifiConnected` 和 OTA 检查/下载/取消/重启期间返回 false，
+  PowerManager 保持 `Active`；
 - 唤醒只恢复显示和 inactivity timer，不改变 session、History 或当前
   `AppState`。
 
@@ -122,7 +138,7 @@ activity。
 | --- | --- | --- |
 | `PrimaryClick` | StickS3 `BtnA` | 页面前进、起一爻、连接、关闭、手动上传 retry |
 | `SecondaryClick` | StickS3 `BtnB` | Wi-Fi 设置、结果页显式上传、返回 |
-| `LongPress` | M5Unified hold | 重新起卦确认、历史退出、切换 runtime 声音开关 |
+| `LongPress` | M5Unified hold | 重新起卦确认、历史退出、切换 runtime 声音开关、已连接页进入 OTA 确认 |
 | `Shake` | `ShakeDetector` | Casting 起一爻；未完成时在 LineResult 进入下一爻 |
 | `None` | 无输入 | 不改变状态 |
 
@@ -146,7 +162,8 @@ acknowledge；渲染不会改变领域数组。UI 显示六爻时从 `index 5` �
 遍历，领域顺序保持 `index 0 = 初爻`，而 API payload 也保持
 `index 0 = 初爻` 到 `index 5 = 上爻`。
 
-Renderer 的每个 `AppState` 都有明确 screen path。`Casting` 显示当前爻序和
+Renderer 的每个 `AppState` 都有明确 screen path。OTA screens 只显示更新版本、
+进度和有限错误类别，不显示证书、manifest 原文或原始响应。`Casting` 显示当前爻序和
 三枚铜钱提示；`LineResult` 在 `CoinAnimation` active 时只等待，finished 后
 显示铜钱、阴/阳、静爻/动爻和下一步。无动爻时停留在本卦结果，不进入空的之卦
 screen。History 只呈现记录顺序、本卦、动爻和存在时的之卦；Wi-Fi 页面把

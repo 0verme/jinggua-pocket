@@ -2,6 +2,7 @@
 
 #include "jinggua/application/state_machine.h"
 #include "jinggua/application/wifi_controller.h"
+#include "jinggua/application/ota_update.h"
 #include "jinggua/hardware/display.h"
 
 namespace jinggua::ui {
@@ -35,5 +36,18 @@ void renderWifiTimeout(hardware::Display& display) noexcept;
 void renderUploading(hardware::Display& display) noexcept;
 void renderUploadSuccess(hardware::Display& display) noexcept;
 void renderUploadFailed(hardware::Display& display) noexcept;
+void renderOtaPrompt(hardware::Display& display) noexcept;
+void renderOtaChecking(hardware::Display& display) noexcept;
+void renderOtaUpToDate(hardware::Display& display,
+                       const application::FirmwareUpdateStatus& status) noexcept;
+void renderOtaAvailable(hardware::Display& display,
+                        const application::FirmwareUpdateStatus& status) noexcept;
+void renderOtaDownloading(hardware::Display& display,
+                          const application::FirmwareUpdateStatus& status) noexcept;
+void renderOtaCancelling(hardware::Display& display) noexcept;
+void renderOtaCancelled(hardware::Display& display) noexcept;
+void renderOtaRebooting(hardware::Display& display) noexcept;
+void renderOtaFailed(hardware::Display& display,
+                     const application::FirmwareUpdateStatus& status) noexcept;
 
 }  // namespace jinggua::ui

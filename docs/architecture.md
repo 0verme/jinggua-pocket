@@ -3,8 +3,8 @@
 ## 目标
 
 JingGua Pocket 保持 Offline First：设备本地完成随机起卦、本卦、动爻和之卦；
-网络只负责在用户明确操作后接收已经完成的结果。真实硬件只承担适配职责，
-application/domain 可以在没有 StickS3 的情况下测试。
+网络只在用户明确操作后上传已完成结果，或检查/下载受限 GitHub Release 固件。
+真实硬件只承担适配职责，application/domain 可以在没有 StickS3 的情况下测试。
 
 ## 分层
 
@@ -42,8 +42,11 @@ HTTP；不直接生成随机数。六爻数组固定为 `index 0 = 初爻`、`in
 - `JingGuaApiClient` 将完整的、只读的 `DivinationSession` 映射为现有 Web
   `/api/divinations` 的扁平 JSON；`ApiResult` 将 transport、HTTP 和解析错误
   归一化为 UI 不必暴露的错误类别。
-- `HttpTransport` 是可替换的单次 POST port；native tests 使用 fake transport
-  或 fake `ApiClient`，不访问生产服务。
+- `FirmwareUpdateClient` 是用户触发、单次运行的 OTA port；`StateMachine` 管理检查、
+  可用、下载、取消、失败与重启提示，不访问 HTTP/Update API。manifest parser 和
+  numeric version compare 可在 Host 测试。
+- `HttpTransport` 是可替换的单次 POST port；native tests 使用 fake transport、
+  fake `ApiClient` 或 fake OTA client，不访问生产服务。
 
 `PowerManager` 只维护 inactivity epoch、`PowerState`、亮度 profile、IMU
 polling profile 和 light-sleep request；它不依赖 Arduino、M5Unified 或
@@ -70,6 +73,10 @@ polling profile 和 light-sleep request；它不依赖 Arduino、M5Unified 或
   设置有界 connect/read timeout、request/response 上限和 `Idempotency-Key`；
   没有 CA 时 fail closed，绝不调用 `setInsecure()`。每次用户上传只创建一个
   one-shot FreeRTOS request task，完成后由主循环 poll；没有后台 retry/reconnect。
+- `Esp32FirmwareUpdateClient` 仅在用户确认后创建 one-shot FreeRTOS OTA task；manifest
+  URL 固定为本仓库，firmware URL 校验为同版本 Release 路径，HTTPS redirect 再限为
+  GitHub Release/asset hosts。CA 缺失、rollback 不支持、SHA/长度/ESP image 校验失败时
+  不会设置新 boot partition。分区和 rollback 前置由 CI 检查。
 - `StickS3AudioController` 实现 `AudioController` 接口：应用层只发出
   `SoundCue`，硬件层使用 M5Unified 的异步 ES8311 Speaker 路径，不把
   `M5.Speaker` 泄漏到状态机。普通固件启用 Speaker，麦克风 research
@@ -85,9 +92,9 @@ Active → Dim → Display Off → Light Sleep → Wake → Active
 
 主循环先交付 Button/Shake activity，再调用 `PowerManager::update()`；因此
 阈值附近的用户动作不会被自动息屏抢先消费。`StateMachine::sleepAllowed()`
-在 coin animation、reset confirmation 和 active Wi-Fi window 返回 false，
-PowerManager 在这些窗口保持 Active。唤醒不重新执行 setup，不重建 session 或
-history，只恢复显示、重置计时并强制渲染当前 AppState。
+在 coin animation、reset confirmation、active Wi-Fi window 与 OTA 检查/下载/取消窗口
+返回 false，PowerManager 在这些窗口保持 Active。唤醒不重新执行 setup，不重建
+session 或 history，只恢复显示、重置计时并强制渲染当前 AppState。
 
 ### UI
 
@@ -112,7 +119,8 @@ Pocket UI 是针对 135×240 portrait 的独立信息层，不把网页缩放到
 
 1. Domain 不依赖 Hardware、UI、HTTP 或 Wi-Fi。
 2. Application 不读取 GPIO，不调用 Arduino `random()`，不绘制屏幕。
-3. `StateMachine` 只依赖 `WifiController` / `ApiClient` ports，不直接写网络。
+3. `StateMachine` 只依赖 `WifiController` / `ApiClient` / `FirmwareUpdateClient`
+   ports，不直接写网络。
 4. Hardware 将外部输入、Wi-Fi、TLS 和 HTTP 转换为 application interfaces。
 5. UI 不反向修改 `Yao`、`DivinationSession` 或卦象。
 6. 静态卦表通过 `data/` 提供；服务器结果不能替换本地随机结果。
@@ -128,11 +136,14 @@ RandomProvider → DivinationSession::castLine()
   (lines / original / moving / transformed)
         ├──────────────→ 本地 Renderer / Display
         ├──────────────→ 本地 HistoryRecord（先保存）
-        └──────────────→ 用户明确打开 Wi-Fi 并在结果页按 B
+        ├──────────────→ 用户明确打开 Wi-Fi 并在结果页按 B
+        │                             ↓
+        │           JingGuaApiClient → HttpTransport → HTTPS API
+        │                             ↓
+        │                     server divination record
+        └──────────────→ 用户在已连接页明确确认 OTA 检查/安装
                                       ↓
-                  JingGuaApiClient → HttpTransport → HTTPS API
-                                      ↓
-                              server divination record
+                    FirmwareUpdateClient → HTTPS Release assets
 
 StateMachine ── SoundCue ──> AudioController / Speaker task
 PowerManager ── PowerState ──> Display / PowerHardware
@@ -141,6 +152,15 @@ PowerManager ── PowerState ──> Display / PowerHardware
 服务器只能验证并记录已经完成的 `line_values`。它永远不参与上半段随机过程，
 也不能改变 `DivinationSession`。问题原文、访客 ID、MAC、芯片唯一 ID 和长期
 credential 不在 Issue #8 的请求中。
+
+## 安全 OTA（Issue #16）
+
+只有 Wi-Fi 已连接且用户从连接页长按并确认，`StateMachine` 才调用
+`FirmwareUpdateClient`。更新流程使用 inactive OTA slot、受限 Release manifest/URL、
+CA 校验、镜像大小限制、SHA-256 和 ESP image 校验；失败/取消不激活新槽。新固件仅
+在 display 与 state machine 完成基础初始化后确认 boot，否则请求 ESP bootloader rollback。
+manifest 契约、已知信任边界、Release 前置和真机验证矩阵见 [`ota.md`](ota.md)。
+SHA-256 是完整性校验，不是离线发布者签名；未配置 CA 时 fail closed。
 
 ## Wi-Fi 与 API（Issue #8）
 

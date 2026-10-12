@@ -15,6 +15,7 @@
 #include "jinggua/hardware/https_transport.h"
 #include "jinggua/hardware/imu.h"
 #include "jinggua/hardware/microphone_research.h"
+#include "jinggua/hardware/ota_update.h"
 #include "jinggua/hardware/preferences_slot_storage.h"
 #include "jinggua/hardware/power_controller.h"
 #include "jinggua/hardware/random.h"
@@ -23,7 +24,8 @@
 
 namespace {
 
-constexpr const char* kFirmwareVersion = "hardware-v0.2";
+constexpr const char* kFirmwareVersion =
+    jinggua::application::kJingGuaFirmwareVersion;
 
 jinggua::hardware::Display display;
 jinggua::hardware::StickS3Buttons buttons;
@@ -36,6 +38,7 @@ jinggua::application::DivinationSession session(randomProvider);
 jinggua::hardware::Esp32WifiManager wifiManager;
 jinggua::hardware::Esp32HttpsTransport apiTransport;
 jinggua::application::JingGuaApiClient apiClient(apiTransport);
+jinggua::hardware::Esp32FirmwareUpdateClient firmwareUpdateClient;
 jinggua::hardware::StickS3AudioController audioController;
 jinggua::application::StateMachine stateMachine(session, wifiManager, apiClient,
                                                  &historyStore);
@@ -308,6 +311,7 @@ void setup() {
 
   const bool audioReady = audioController.begin();
   stateMachine.setAudioController(audioController);
+  stateMachine.setFirmwareUpdateClient(firmwareUpdateClient);
   Serial.print("[Audio] speaker ");
 #if defined(JINGGUA_ENABLE_MIC_RESEARCH) && JINGGUA_ENABLE_MIC_RESEARCH
   Serial.println(audioReady ? "configured but disabled in mic research"
@@ -351,6 +355,12 @@ void setup() {
   Serial.print("[State] BOOT -> ");
   Serial.println(jinggua::application::appStateName(stateMachine.state()));
   renderIfNeeded();
+  if (!jinggua::hardware::verifyPendingFirmwareBoot(
+          displayReady && stateMachine.state() ==
+                              jinggua::application::AppState::Welcome)) {
+    Serial.println("[OTA] pending firmware failed startup checks; rollback requested");
+    return;
+  }
 }
 
 void loop() {

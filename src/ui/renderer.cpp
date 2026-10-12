@@ -90,6 +90,33 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
     case application::AppState::UploadFailed:
       renderUploadFailed(display_);
       break;
+    case application::AppState::OtaPrompt:
+      renderOtaPrompt(display_);
+      break;
+    case application::AppState::OtaChecking:
+      renderOtaChecking(display_);
+      break;
+    case application::AppState::OtaUpToDate:
+      renderOtaUpToDate(display_, stateMachine.lastFirmwareUpdateStatus());
+      break;
+    case application::AppState::OtaAvailable:
+      renderOtaAvailable(display_, stateMachine.lastFirmwareUpdateStatus());
+      break;
+    case application::AppState::OtaDownloading:
+      renderOtaDownloading(display_, stateMachine.lastFirmwareUpdateStatus());
+      break;
+    case application::AppState::OtaCancelling:
+      renderOtaCancelling(display_);
+      break;
+    case application::AppState::OtaCancelled:
+      renderOtaCancelled(display_);
+      break;
+    case application::AppState::OtaRebooting:
+      renderOtaRebooting(display_);
+      break;
+    case application::AppState::OtaFailed:
+      renderOtaFailed(display_, stateMachine.lastFirmwareUpdateStatus());
+      break;
   }
 }
 

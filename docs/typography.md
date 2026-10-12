@@ -16,16 +16,16 @@ Noto CJK 的上游项目与授权见 [notofonts/noto-cjk](https://github.com/not
 
 ## 子集边界
 
-`tools/generate_font_assets.py` 扫描 `src/` 与 `include/` 的固件文案，加入
-ASCII `U+0020..U+007E`，再生成升序 Unicode 表。当前提交的资源为
-**271 个字形、38,085 字节**，覆盖固定文案、三枚铜钱符号、标点、八卦名称和
-六十四卦名称。新增页面文案后必须重新生成资源并运行检查；不提交完整中文字库，
-也不依赖设备文件系统。
+`tools/merge_font_assets.py` 扫描 `src/` 与 `include/` 的固件文案，加入
+ASCII `U+0020..U+007E`，并把缺失字形合并到升序 Unicode 表；已存在字形的 VLW
+bitmap 原样保留，避免 Pillow/FreeType 版本变化重绘全部字体。当前资源为
+**326 个字形、47,669 字节**；本次为 OTA UI 增加 48 个字形。新增页面文案后需
+合并资源并运行检查；不提交完整中文字库，也不依赖设备文件系统。
 
 生成示例（Windows）：
 
 ```powershell
-& D:\miniconda3\python.exe tools/generate_font_assets.py `
+& D:\miniconda3\python.exe tools/merge_font_assets.py `
   --font C:\Windows\Fonts\NotoSansSC-VF.ttf
 & D:\miniconda3\python.exe tools/check_font_asset.py
 ```
@@ -59,12 +59,12 @@ ASCII `U+0020..U+007E`，再生成升序 Unicode 表。当前提交的资源为
 
 | 项目 | 当前方案 | 原 `efontCN_10` | 差值 |
 | --- | ---: | ---: | ---: |
-| Flash 字体 payload | 38,085 B | 158,417 B | **-120,332 B（约 -75.9%）** |
-| 运行时字形表（PSRAM 优先） | 2,439 B | 由 M5GFX 内置静态表承担 | 新增约 2.4 KiB |
+| Flash 字体 payload | 47,669 B | 158,417 B | **-110,748 B（约 -69.9%）** |
+| 运行时字形表（PSRAM 优先） | 2,934 B | 由 M5GFX 内置静态表承担 | 新增约 2.9 KiB |
 
 运行时表按 M5GFX `VLWfont::loadFont` 的布局计算：每个字形需要 4 字节 bitmap
 偏移、2 字节 Unicode、1 字节宽度、1 字节步进和 1 字节横向偏移，即
-`271 × 9 = 2,439 B`。字形 bitmap 按需读到栈上，不常驻 RAM；分配失败时会
+`326 × 9 = 2,934 B`。字形 bitmap 按需读到栈上，不常驻 RAM；分配失败时会
 回退到内置 Latin `Font0`，且不会把完整中文库重新链接进固件。
 
 `check_font_asset.py` 会在 CI/本地检查源码中出现的每个字符都存在于已提交字体表，
