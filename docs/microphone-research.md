@@ -59,9 +59,9 @@ queue 和 duration 说明见新的 validation 文档。
 在 Windows 上从仓库根目录执行：
 
 ```powershell
-python -m platformio run -e m5stack-sticks3-mic-research
-python -m platformio run -e m5stack-sticks3-mic-research -t upload
-python -m platformio device monitor -b 115200
+pio run -e m5stack-sticks3-mic-research
+pio run -e m5stack-sticks3-mic-research -t upload
+pio device monitor -b 115200
 ```
 
 串口出现 `[MicResearch] peripheral=stopped` 后，按 validation 文档设置

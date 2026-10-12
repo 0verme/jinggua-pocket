@@ -136,6 +136,9 @@ data (8 trigrams + 64 hexagrams)
 当前开发预览版的首次运行、离线起卦、Wi-Fi/OTA 限制和已知未完成项见
 [快速开始与限制说明](docs/quick-start.md)。该指南不代表 v1.0 发布或硬件验收通过。
 
+Python 命令示例使用 Python 3：macOS/Linux 使用 `python3`，Windows PowerShell 使用
+`py -3`；PlatformIO 命令直接使用 `pio`。
+
 ### Host native tests
 
 领域与应用层可在没有 StickS3 的主机环境编译：
@@ -151,14 +154,14 @@ ctest --test-dir build/native --output-on-failure
 `millis()` wrap-around，以及 API contract 的 fake transport/client、离线保护、
 错误、bounded response 和手动 retry；OTA manifest/version、显式检查/安装、离线保护、
 下载进度与取消。Host tests 使用 deterministic `RandomProvider`，不会调用 Arduino `random()`。
-OTA manifest 生成器由 `python -m unittest discover -s test/python -p 'test_*.py'` 验证。
+OTA manifest 生成器由 `python3 -m unittest discover -s test/python -p 'test_*.py'` 验证。
 
 字体子集完整性、分区/rollback 检查与 Release manifest 工具测试：
 
 ```bash
-python tools/check_font_asset.py
-python tools/check_ota_support.py
-python -m unittest discover -s test/python -p 'test_*.py'
+python3 tools/check_font_asset.py
+python3 tools/check_ota_support.py
+python3 -m unittest discover -s test/python -p 'test_*.py'
 ```
 
 ### StickS3 firmware
@@ -167,7 +170,7 @@ python -m unittest discover -s test/python -p 'test_*.py'
 
 ```bash
 pio run -e m5stack-sticks3
-python tools/check_ota_support.py
+python3 tools/check_ota_support.py
 pio run -e m5stack-sticks3 -t upload
 pio device monitor -b 115200
 ```
