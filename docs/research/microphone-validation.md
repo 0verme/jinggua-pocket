@@ -175,9 +175,9 @@ harness 支持 `d<N>` 设置秒数，最大 60 秒；默认是 5 秒。最小验
 在仓库根目录执行：
 
 ```powershell
-python -m platformio run -e m5stack-sticks3-mic-research
-python -m platformio run -e m5stack-sticks3-mic-research -t upload
-python -m platformio device monitor -b 115200
+pio run -e m5stack-sticks3-mic-research
+pio run -e m5stack-sticks3-mic-research -t upload
+pio device monitor -b 115200
 ```
 
 串口 monitor 设置为 115200，并启用发送 newline。看到 `peripheral=stopped` 后：

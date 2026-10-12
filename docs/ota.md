@@ -46,9 +46,9 @@ Release build 在 PlatformIO 环境注入非敏感版本与公开 CA：
 ```sh
 JINGGUA_FIRMWARE_VERSION=1.0.0 \
 JINGGUA_OTA_ROOT_CA="-----BEGIN CERTIFICATE-----..." \
-python -m platformio run -e m5stack-sticks3
+pio run -e m5stack-sticks3
 
-python tools/create_ota_manifest.py \
+python3 tools/create_ota_manifest.py \
   --firmware .pio/build/m5stack-sticks3/firmware.bin \
   --version 1.0.0 \
   --output firmware-manifest.txt
@@ -67,9 +67,9 @@ cmake -S test/native -B build/native -DCMAKE_BUILD_TYPE=Release
 cmake --build build/native --config Release --parallel
 ctest --test-dir build/native --build-config Release --output-on-failure
 pio run -e m5stack-sticks3
-python tools/check_ota_support.py
-python tools/check_font_asset.py
-python tools/check_format.py
+python3 tools/check_ota_support.py
+python3 tools/check_font_asset.py
+python3 tools/check_format.py
 git diff --check
 ```
 
