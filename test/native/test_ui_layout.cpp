@@ -1,5 +1,6 @@
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <utility>
 #include <vector>
 
@@ -11,6 +12,7 @@
 #include "jinggua/application/state_machine.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/ui/coin_animation.h"
+#include "jinggua/ui/firmware_version.h"
 #include "jinggua/ui/layout.h"
 #include "jinggua/ui/renderer.h"
 #include "jinggua/ui/screens.h"
@@ -54,14 +56,30 @@ void runUiLayoutTests(TestRunner& runner) {
   EXPECT_EQ(runner, jinggua::ui::layout::kScreenWidth, 135);
   EXPECT_EQ(runner, jinggua::ui::layout::kScreenHeight, 240);
   EXPECT(runner, jinggua::ui::layout::isPocketLayoutSafe());
-  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsSoundY, 136);
-  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsFirmwareVersionY, 160);
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsSoundY, 124);
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsFirmwareVersionLabelY, 144);
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsFirmwareVersionLine1Y, 160);
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsFirmwareVersionLine2Y, 176);
   EXPECT(runner,
-         jinggua::ui::layout::kSettingsFirmwareVersionY +
+         2 * jinggua::ui::layout::kFirmwareVersionCharactersPerLine >=
+             jinggua::application::kFirmwareVersionMaxLength);
+  EXPECT(runner,
+         jinggua::ui::layout::kSettingsFirmwareVersionLine2Y +
                  jinggua::ui::layout::kFooterLineHeight <
              jinggua::ui::layout::footerSecondaryY(240));
   EXPECT(runner,
          jinggua::application::kJingGuaFirmwareVersion[0] != '\0');
+  jinggua::ui::FirmwareVersionLines maxVersionLines{};
+  constexpr char maxFirmwareVersion[] = "4294967295.4294967295.12";
+  EXPECT(runner, jinggua::ui::splitFirmwareVersion(maxFirmwareVersion,
+                                                   maxVersionLines));
+  EXPECT(runner,
+         std::strcmp(maxVersionLines.first, "4294967295.4") == 0);
+  EXPECT(runner,
+         std::strcmp(maxVersionLines.second, "294967295.12") == 0);
+  EXPECT(runner,
+         !jinggua::ui::splitFirmwareVersion(
+             "4294967295.4294967295.123", maxVersionLines));
   EXPECT_EQ(runner, jinggua::ui::layout::horizontalMargin(135), 10);
   EXPECT_EQ(runner, jinggua::ui::layout::footerY(240), 216);
   EXPECT_EQ(runner, jinggua::ui::layout::footerSecondaryY(240), 196);

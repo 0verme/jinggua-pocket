@@ -18,7 +18,7 @@ SHA-256 用于镜像完整性验证，不是离线签名。HTTPS CA 校验与 Gi
 4. 下载过程中按 B 请求安全取消；界面显示进度。SHA 与 ESP image 校验通过后原子关闭取消入口，进入不可取消的 finalization 屏幕，激活结果成功后才显示重启提示。
 5. 错误显示有限类别；只有用户再次按 A 才会重试。不会自动连接 Wi-Fi、重试或更新。
 
-OTA 查询需要 Wi-Fi 当前处于 Connected。缺少配置会显示“更新服务未配置”，不会跳过证书验证。Wi-Fi Settings 页显示当前编译版本（`JINGGUA_FIRMWARE_VERSION`，开发默认 `0.2.0`）；OTA 检查页显示 manifest 中的最新/候选版本，两者含义不同。设置页的软件显示路径有 host/build coverage，但没有 StickS3 实屏/发布版本验收，仍为 `PENDING_HARDWARE_VALIDATION`。更新/取消/finalization 期间 `StateMachine::sleepAllowed()` 返回 false，减少屏幕休眠中断操作。
+OTA 查询需要 Wi-Fi 当前处于 Connected。缺少配置会显示“更新服务未配置”，不会跳过证书验证。Wi-Fi Settings 页显示当前编译版本（`JINGGUA_FIRMWARE_VERSION`，开发默认 `0.2.0`），最长支持 24 个 ASCII 字符并分两行呈现；OTA 检查页显示 manifest 中的最新/候选版本，两者含义不同。设置页的软件显示路径有 host/build coverage，但没有 StickS3 实屏/发布版本验收，仍为 `PENDING_HARDWARE_VALIDATION`。更新/取消/finalization 期间 `StateMachine::sleepAllowed()` 返回 false，减少屏幕休眠中断操作。
 
 ## Manifest / GitHub Release 契约
 
