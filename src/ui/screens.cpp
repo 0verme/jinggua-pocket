@@ -365,8 +365,15 @@ void renderWifiSettings(hardware::Display& display,
     drawSsid(display, wifi);
   }
   display.drawText(soundEnabled ? "声音：开" : "声音：关", margin(display),
-                   layout::kWifiSsidY + 32, theme::kAccent,
+                   layout::kSettingsSoundY, theme::kAccent,
                    typography::kSecondary);
+  char firmwareVersion[application::kFirmwareVersionMaxLength +
+                       sizeof("固件 ")]{};
+  std::snprintf(firmwareVersion, sizeof(firmwareVersion), "固件 %s",
+                application::kJingGuaFirmwareVersion);
+  display.drawText(firmwareVersion, margin(display),
+                   layout::kSettingsFirmwareVersionY, theme::kMuted,
+                   typography::kFooter);
   drawFooter(display, "A 连接  B 返回", "长按：声音开关");
 }
 

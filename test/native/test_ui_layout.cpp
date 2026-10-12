@@ -54,6 +54,14 @@ void runUiLayoutTests(TestRunner& runner) {
   EXPECT_EQ(runner, jinggua::ui::layout::kScreenWidth, 135);
   EXPECT_EQ(runner, jinggua::ui::layout::kScreenHeight, 240);
   EXPECT(runner, jinggua::ui::layout::isPocketLayoutSafe());
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsSoundY, 136);
+  EXPECT_EQ(runner, jinggua::ui::layout::kSettingsFirmwareVersionY, 160);
+  EXPECT(runner,
+         jinggua::ui::layout::kSettingsFirmwareVersionY +
+                 jinggua::ui::layout::kFooterLineHeight <
+             jinggua::ui::layout::footerSecondaryY(240));
+  EXPECT(runner,
+         jinggua::application::kJingGuaFirmwareVersion[0] != '\0');
   EXPECT_EQ(runner, jinggua::ui::layout::horizontalMargin(135), 10);
   EXPECT_EQ(runner, jinggua::ui::layout::footerY(240), 216);
   EXPECT_EQ(runner, jinggua::ui::layout::footerSecondaryY(240), 196);
