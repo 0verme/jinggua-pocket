@@ -63,7 +63,9 @@ Connected JingGua API Contract + Issue #16 安全 OTA 软件路径**：先把领
 | Audio | M5Unified `M5.Speaker` / ES8311 I2S TX（普通固件） |
 
 PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录在
-[`docs/hardware.md`](docs/hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。
+[`docs/hardware.md`](docs/hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。Issue #15 的
+参数化 open-access bumper 草案、尺寸来源、prototype BOM 和硬件验证计划见
+[`cad/issue-15/README.md`](cad/issue-15/README.md)；尚无 OpenSCAD render 或实体样机验收。
 
 官方资料：
 
