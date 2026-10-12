@@ -43,6 +43,20 @@ void runRingHistoryStoreTests(TestRunner& runner) {
   }
 
   // -----------------------------------------------------------------------
+  // Storage initialization failure is fail-closed and cannot accept writes.
+  // -----------------------------------------------------------------------
+  {
+    InMemorySlotStorage storage(4);
+    storage.setBeginResult(false);
+    RingHistoryStore store(storage);
+    EXPECT(runner, !store.begin());
+    EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
+    HistoryRecord record = makeSimpleRecord(0, 1, 7);
+    EXPECT(runner, !store.add(record));
+    EXPECT(runner, !store.get(0, record));
+  }
+
+  // -----------------------------------------------------------------------
   // Add one record → count=1, get(0) matches, nextLocalRecordId advances.
   // -----------------------------------------------------------------------
   {
@@ -191,6 +205,159 @@ void runRingHistoryStoreTests(TestRunner& runner) {
   }
 
   // -----------------------------------------------------------------------
+  // A record whose index commit failed is detected and recovered at next boot.
+  // -----------------------------------------------------------------------
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      storage.failNextIndexWrite();
+      auto rec = makeSimpleRecord(0, 1, 7);
+      EXPECT(runner, store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(1));
+      HistoryRecord loaded;
+      EXPECT(runner, store.get(0, loaded));
+      EXPECT_EQ(runner, loaded.originalNumber, static_cast<std::uint8_t>(1));
+    }
+  }
+
+  // -----------------------------------------------------------------------
+  // Partial compaction is replayed from the staging journal without data loss.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 5; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failRecordWriteAfter(1);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+      auto rec = makeSimpleRecord(0, 6, 7);
+      EXPECT(runner, !store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(4));
+      for (std::size_t i = 0; i < 4; ++i) {
+        HistoryRecord loaded;
+        EXPECT(runner, store.get(i, loaded));
+        EXPECT_EQ(runner, loaded.localRecordId,
+                  static_cast<std::uint32_t>(i + 2));
+      }
+    }
+  }
+
+  // Failure to persist the staging journal leaves all source slots untouched.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failNextRecoveryJournalWrite();
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
+    }
+  }
+
+  // Index persistence failure is also reported and retried from the journal.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+    storage.corruptIndexPayload();
+    storage.failNextIndexWrite();
+    storage.failNextRecoveryJournalErase();
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
+    }
+  }
+
+  // A one-shot active-slot read error must abort recovery before any mutation.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+    }
+
+    std::array<std::uint8_t, kHistoryRecordSerializedSize> recordBefore{};
+    std::memcpy(recordBefore.data(), storage.recordBytes(0),
+                recordBefore.size());
+    std::array<std::uint8_t, jinggua::data::kHistoryIndexSerializedSize>
+        indexBefore{};
+    std::memcpy(indexBefore.data(), storage.indexBytes(), indexBefore.size());
+    const auto indexSizeBefore = storage.indexSize();
+
+    storage.failNextRecordRead(0);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, !store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
+    }
+    EXPECT_EQ(runner, storage.recordSize(0), recordBefore.size());
+    EXPECT(runner, std::memcmp(storage.recordBytes(0), recordBefore.data(),
+                               recordBefore.size()) == 0);
+    EXPECT_EQ(runner, storage.indexSize(), indexSizeBefore);
+    EXPECT(runner, std::memcmp(storage.indexBytes(), indexBefore.data(),
+                               indexBefore.size()) == 0);
+    EXPECT_EQ(runner, storage.recoveryJournalSize(),
+              static_cast<std::size_t>(0));
+
+    RingHistoryStore recovered(storage);
+    EXPECT(runner, recovered.begin());
+    EXPECT_EQ(runner, recovered.count(), static_cast<std::size_t>(2));
+    HistoryRecord loaded;
+    EXPECT(runner, recovered.get(0, loaded));
+    EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(1));
+    EXPECT(runner, recovered.get(1, loaded));
+    EXPECT_EQ(runner, loaded.localRecordId, static_cast<std::uint32_t>(2));
+  }
+
+  // -----------------------------------------------------------------------
   // Corrupted single record → other records are still accessible.
   // -----------------------------------------------------------------------
   {
@@ -236,13 +403,63 @@ void runRingHistoryStoreTests(TestRunner& runner) {
     EXPECT(runner, store.add(rec));
     EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(1));
 
-    store.clear();
+    EXPECT(runner, store.clear());
     EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
     EXPECT_EQ(runner, store.nextLocalRecordId(),
               static_cast<std::uint32_t>(1));
 
     HistoryRecord loaded;
     EXPECT(runner, !store.get(0, loaded));
+  }
+
+  // A failed clear erase keeps a durable empty-snapshot journal for reboot.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+      storage.failRecordEraseAfter(1);
+      EXPECT(runner, !store.clear());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
+      EXPECT(runner, storage.recoveryJournalSize() > 0);
+      auto rec = makeSimpleRecord(0, 3, 7);
+      EXPECT(runner, !store.add(rec));
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(0));
+      EXPECT_EQ(runner, store.nextLocalRecordId(),
+                static_cast<std::uint32_t>(1));
+      HistoryRecord loaded;
+      EXPECT(runner, !store.get(0, loaded));
+      EXPECT_EQ(runner, storage.recoveryJournalSize(),
+                static_cast<std::size_t>(0));
+    }
+  }
+
+  // If the clear marker cannot be persisted, source records remain recoverable.
+  {
+    InMemorySlotStorage storage(4);
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      for (std::uint32_t i = 1; i <= 2; ++i) {
+        auto rec = makeSimpleRecord(i, static_cast<std::uint8_t>(i), 7);
+        EXPECT(runner, store.add(rec));
+      }
+      storage.failNextRecoveryJournalWrite();
+      EXPECT(runner, !store.clear());
+    }
+    {
+      RingHistoryStore store(storage);
+      EXPECT(runner, store.begin());
+      EXPECT_EQ(runner, store.count(), static_cast<std::size_t>(2));
+    }
   }
 
   // -----------------------------------------------------------------------

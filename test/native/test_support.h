@@ -70,25 +70,75 @@ inline jinggua::domain::Yao yaoAt(std::uint8_t position,
 class InMemorySlotStorage final : public jinggua::application::SlotStorage {
  public:
   explicit InMemorySlotStorage(std::size_t capacity) noexcept
-      : records_(capacity), sizes_(capacity, 0) {}
+      : records_(capacity), sizes_(capacity, 0),
+        recordReadFailures_(capacity, false),
+        oneShotRecordReadFailures_(capacity, false) {}
 
   std::size_t capacity() const noexcept override { return records_.size(); }
 
-  bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
-                  std::size_t& sizeOut) const noexcept override {
-    if (slot >= records_.size() || sizes_[slot] == 0) {
-      return false;
+  bool begin() noexcept override { return beginResult_; }
+
+  void setBeginResult(bool result) noexcept { beginResult_ = result; }
+  void failNextRecordWrite() noexcept { failRecordWriteAfter(0); }
+  void failRecordWriteAfter(std::size_t successfulWrites) noexcept {
+    recordWriteFailureEnabled_ = true;
+    recordWritesBeforeFailure_ = successfulWrites;
+  }
+  void setRecordReadFailure(std::size_t slot, bool fail) noexcept {
+    if (slot < recordReadFailures_.size()) {
+      recordReadFailures_[slot] = fail;
+    }
+  }
+  void failNextRecordRead(std::size_t slot) noexcept {
+    if (slot < oneShotRecordReadFailures_.size()) {
+      oneShotRecordReadFailures_[slot] = true;
+    }
+  }
+  void failRecordEraseAfter(std::size_t successfulErases) noexcept {
+    recordErasesBeforeFailure_ = successfulErases;
+    recordEraseFailureEnabled_ = true;
+  }
+  void failNextIndexWrite() noexcept { failNextIndexWrite_ = true; }
+  void failNextRecoveryJournalWrite() noexcept {
+    failNextRecoveryJournalWrite_ = true;
+  }
+  void failNextRecoveryJournalErase() noexcept {
+    failNextRecoveryJournalErase_ = true;
+  }
+
+  jinggua::application::RecordReadResult readRecord(
+      std::size_t slot, std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override {
+    if (slot >= records_.size()) {
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (oneShotRecordReadFailures_[slot]) {
+      oneShotRecordReadFailures_[slot] = false;
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (recordReadFailures_[slot]) {
+      return jinggua::application::RecordReadResult::Error;
+    }
+    if (sizes_[slot] == 0) {
+      return jinggua::application::RecordReadResult::Missing;
     }
     if (capacity < sizes_[slot]) {
-      return false;
+      return jinggua::application::RecordReadResult::Error;
     }
     std::memcpy(data, records_[slot].data(), sizes_[slot]);
     sizeOut = sizes_[slot];
-    return true;
+    return jinggua::application::RecordReadResult::Ready;
   }
 
   bool writeRecord(std::size_t slot, const std::uint8_t* data,
                    std::size_t size) noexcept override {
+    if (recordWriteFailureEnabled_) {
+      if (recordWritesBeforeFailure_ == 0) {
+        recordWriteFailureEnabled_ = false;
+        return false;
+      }
+      --recordWritesBeforeFailure_;
+    }
     if (slot >= records_.size() || size > records_[slot].size()) {
       return false;
     }
@@ -100,6 +150,13 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   bool eraseRecord(std::size_t slot) noexcept override {
     if (slot >= records_.size()) {
       return false;
+    }
+    if (recordEraseFailureEnabled_) {
+      if (recordErasesBeforeFailure_ == 0) {
+        recordEraseFailureEnabled_ = false;
+        return false;
+      }
+      --recordErasesBeforeFailure_;
     }
     sizes_[slot] = 0;
     return true;
@@ -116,11 +173,52 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   }
 
   bool writeIndex(const std::uint8_t* data, std::size_t size) noexcept override {
+    if (failNextIndexWrite_) {
+      failNextIndexWrite_ = false;
+      return false;
+    }
     if (size > index_.size()) {
       return false;
     }
     std::memcpy(index_.data(), data, size);
     indexSize_ = size;
+    return true;
+  }
+
+  jinggua::application::RecoveryJournalReadResult readRecoveryJournal(
+      std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override {
+    if (recoveryJournalSize_ == 0) {
+      return jinggua::application::RecoveryJournalReadResult::Missing;
+    }
+    if (capacity < recoveryJournalSize_) {
+      return jinggua::application::RecoveryJournalReadResult::Error;
+    }
+    std::memcpy(data, recoveryJournal_.data(), recoveryJournalSize_);
+    sizeOut = recoveryJournalSize_;
+    return jinggua::application::RecoveryJournalReadResult::Ready;
+  }
+
+  bool writeRecoveryJournal(const std::uint8_t* data,
+                            std::size_t size) noexcept override {
+    if (failNextRecoveryJournalWrite_) {
+      failNextRecoveryJournalWrite_ = false;
+      return false;
+    }
+    if (size > recoveryJournal_.size()) {
+      return false;
+    }
+    std::memcpy(recoveryJournal_.data(), data, size);
+    recoveryJournalSize_ = size;
+    return true;
+  }
+
+  bool eraseRecoveryJournal() noexcept override {
+    if (failNextRecoveryJournalErase_) {
+      failNextRecoveryJournalErase_ = false;
+      return false;
+    }
+    recoveryJournalSize_ = 0;
     return true;
   }
 
@@ -154,6 +252,9 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
   // Raw access so a test can patch the index bytes directly.
   std::uint8_t* indexBytes() noexcept { return index_.data(); }
   std::size_t indexSize() const noexcept { return indexSize_; }
+  std::size_t recoveryJournalSize() const noexcept {
+    return recoveryJournalSize_;
+  }
   std::uint8_t* recordBytes(std::size_t slot) noexcept {
     return records_[slot].data();
   }
@@ -166,8 +267,20 @@ class InMemorySlotStorage final : public jinggua::application::SlotStorage {
                          jinggua::domain::kHistoryRecordSerializedSize>>
       records_;
   std::vector<std::size_t> sizes_;
+  std::vector<bool> recordReadFailures_;
+  mutable std::vector<bool> oneShotRecordReadFailures_;
   std::array<std::uint8_t, 64> index_{};
   std::size_t indexSize_{0};
+  std::array<std::uint8_t, 2048> recoveryJournal_{};
+  std::size_t recoveryJournalSize_{0};
+  std::size_t recordWritesBeforeFailure_{0};
+  std::size_t recordErasesBeforeFailure_{0};
+  bool beginResult_{true};
+  bool recordWriteFailureEnabled_{false};
+  bool recordEraseFailureEnabled_{false};
+  bool failNextIndexWrite_{false};
+  bool failNextRecoveryJournalWrite_{false};
+  bool failNextRecoveryJournalErase_{false};
 };
 
 // Fake AudioController for StateMachine tests. It models the hardware

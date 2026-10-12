@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include <esp_system.h>
 
 #include <cstdlib>
 #include <limits>
@@ -10,6 +11,7 @@
 #include "jinggua/application/power_manager.h"
 #include "jinggua/application/state_machine.h"
 #include "jinggua/hardware/audio_feedback.h"
+#include "jinggua/hardware/boot_diagnostics.h"
 #include "jinggua/hardware/buttons.h"
 #include "jinggua/hardware/display.h"
 #include "jinggua/hardware/https_transport.h"
@@ -26,6 +28,45 @@ namespace {
 
 constexpr const char* kFirmwareVersion =
     jinggua::application::kJingGuaFirmwareVersion;
+
+jinggua::hardware::BootResetReason bootResetReasonFromEsp(
+    esp_reset_reason_t reason) noexcept {
+  using jinggua::hardware::BootResetReason;
+  switch (reason) {
+    case ESP_RST_UNKNOWN:
+      return BootResetReason::Unknown;
+    case ESP_RST_POWERON:
+      return BootResetReason::PowerOn;
+    case ESP_RST_EXT:
+      return BootResetReason::External;
+    case ESP_RST_SW:
+      return BootResetReason::Software;
+    case ESP_RST_PANIC:
+      return BootResetReason::Panic;
+    case ESP_RST_INT_WDT:
+      return BootResetReason::InterruptWatchdog;
+    case ESP_RST_TASK_WDT:
+      return BootResetReason::TaskWatchdog;
+    case ESP_RST_WDT:
+      return BootResetReason::Watchdog;
+    case ESP_RST_DEEPSLEEP:
+      return BootResetReason::DeepSleep;
+    case ESP_RST_BROWNOUT:
+      return BootResetReason::Brownout;
+    case ESP_RST_SDIO:
+      return BootResetReason::Sdio;
+  }
+  return BootResetReason::Unknown;
+}
+
+void logBootDiagnostics() noexcept {
+  const auto reason = esp_reset_reason();
+  Serial.print("[Boot] reset_reason=");
+  Serial.print(jinggua::hardware::bootResetReasonName(
+      bootResetReasonFromEsp(reason)));
+  Serial.print(" code=");
+  Serial.println(static_cast<unsigned>(reason));
+}
 
 jinggua::hardware::Display display;
 jinggua::hardware::StickS3Buttons buttons;
@@ -297,6 +338,7 @@ void renderIfNeeded(bool force = false) {
 void setup() {
   Serial.begin(115200);
   Serial.println("[JingGua] boot");
+  logBootDiagnostics();
   Serial.print("[JingGua] version=");
   Serial.println(kFirmwareVersion);
 

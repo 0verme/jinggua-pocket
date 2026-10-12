@@ -22,13 +22,16 @@ namespace jinggua::hardware {
 //
 // Layout inside namespace "jinggua":
 //   - key "idx": serialized HistoryIndex (see history_index.h)
+//   - key "recovery": atomic transaction journal used for rebuild and clear
 //   - keys "rec_000".."rec_063": one serialized HistoryRecord each
 class PreferencesSlotStorage final : public application::SlotStorage {
  public:
+  bool begin() noexcept override;
   std::size_t capacity() const noexcept override;
 
-  bool readRecord(std::size_t slot, std::uint8_t* data, std::size_t capacity,
-                  std::size_t& sizeOut) const noexcept override;
+  application::RecordReadResult readRecord(
+      std::size_t slot, std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override;
   bool writeRecord(std::size_t slot, const std::uint8_t* data,
                    std::size_t size) noexcept override;
   bool eraseRecord(std::size_t slot) noexcept override;
@@ -37,7 +40,16 @@ class PreferencesSlotStorage final : public application::SlotStorage {
                  std::size_t& sizeOut) const noexcept override;
   bool writeIndex(const std::uint8_t* data, std::size_t size) noexcept override;
 
+  application::RecoveryJournalReadResult readRecoveryJournal(
+      std::uint8_t* data, std::size_t capacity,
+      std::size_t& sizeOut) const noexcept override;
+  bool writeRecoveryJournal(const std::uint8_t* data,
+                            std::size_t size) noexcept override;
+  bool eraseRecoveryJournal() noexcept override;
+
  private:
+  bool started_{false};
+
   void makeSlotKey(char* buffer, std::size_t slot) const noexcept;
 };
 
