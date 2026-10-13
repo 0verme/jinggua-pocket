@@ -4,6 +4,8 @@
 #include <cstdint>
 #include <cstdio>
 
+#include "jinggua/application/offline_hexagram_code.h"
+#include "jinggua/domain/offline_hexagram_code.h"
 #include "jinggua/ui/coin_animation.h"
 #include "jinggua/ui/firmware_version.h"
 #include "jinggua/ui/layout.h"
@@ -221,6 +223,23 @@ void drawLineHeading(hardware::Display& display, std::uint8_t position) noexcept
   drawTitle(display, heading);
 }
 
+void drawOfflineCode(hardware::Display& display,
+                     const application::DivinationSession& session) noexcept {
+  const auto code = application::offlineHexagramCodeForSession(session);
+  if (!code.has_value()) {
+    return;
+  }
+
+  char digits[5]{};
+  char label[16]{};
+  if (!domain::formatOfflineHexagramCode(*code, digits, sizeof(digits))) {
+    return;
+  }
+  std::snprintf(label, sizeof(label), "CODE %s", digits);
+  display.drawText(label, margin(display), layout::kResultCodeY,
+                   theme::kAccent, typography::kPrimary);
+}
+
 int drawResultHeader(hardware::Display& display, const char* label,
                      const domain::Hexagram& hexagram) noexcept {
   clearScreen(display);
@@ -324,6 +343,7 @@ void renderHexagramResult(
   const int lineTop = drawResultHeader(display, "本卦", result->original);
   drawMovingSummary(display, *result, layout::kResultMovingY);
   drawHexagram(display, result->original, lineTop);
+  drawOfflineCode(display, session);
   drawFooter(display, result->hasMovingLines() ? "A 查看之卦 · B 上传"
                                                 : "A 重新起卦 · B 上传");
 }
@@ -350,6 +370,7 @@ void renderTransformedResult(
 
   const int lineTop = drawResultHeader(display, "→ 之卦", *result->transformed);
   drawHexagram(display, *result->transformed, lineTop);
+  drawOfflineCode(display, session);
   drawFooter(display, "A 重新起卦 · B 上传");
 }
 

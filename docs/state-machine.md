@@ -166,9 +166,12 @@ acknowledge；渲染不会改变领域数组。UI 显示六爻时从 `index 5` �
 `index 0 = 初爻` 到 `index 5 = 上爻`。
 
 Renderer 的每个 `AppState` 都有明确 screen path。OTA screens 只显示更新版本、
-进度和有限错误类别，不显示证书、manifest 原文或原始响应。`Casting` 显示当前爻序和
-三枚铜钱提示；`LineResult` 在 `CoinAnimation` active 时只等待，finished 后
-显示铜钱、阴/阳、静爻/动爻和下一步。无动爻时停留在本卦结果，不进入空的之卦
-screen。History 只呈现记录顺序、本卦、动爻和存在时的之卦；Wi-Fi 页面把
+进度和有限错误类别，不显示证书、manifest 原文或原始响应。完整起卦后，本卦与之卦
+结果页从初爻到上爻的六个 `Yao::coins.total` 派生并显示同一个四位离线卦象码；起卦
+未完成时不显示码，历史页从 `lineTotals` 重算。该展示不改变结果页 A/B 或 Shake 的
+语义，不发起网络请求。协议见 [`offline-hexagram-code-v1.md`](offline-hexagram-code-v1.md)。
+`Casting` 显示当前爻序和三枚铜钱提示；`LineResult` 在 `CoinAnimation` active 时只等待，
+finished 后显示铜钱、阴/阳、静爻/动爻和下一步。无动爻时停留在本卦结果，不进入空的
+之卦 screen。History 只呈现记录顺序、本卦、动爻和存在时的之卦；Wi-Fi 页面把
 Off/Connecting/Connected/Failed/Timeout 映射为 `未连接`、`正在连接…`、`已连接`
 和 `连接失败` 等产品文案，不泄露内部错误码；上传页面只显示简短结果状态。

@@ -27,6 +27,7 @@ add_executable(jinggua_native_tests
   test_wifi.cpp
   test_api.cpp
   test_ota.cpp
+  test_offline_hexagram_code.cpp
   test_transform.cpp
   test_ui_layout.cpp
   test_yao.cpp
@@ -44,6 +45,7 @@ add_executable(jinggua_native_tests
   ../../src/domain/divination.cpp
   ../../src/domain/hexagram.cpp
   ../../src/domain/history_record.cpp
+  ../../src/domain/offline_hexagram_code.cpp
   ../../src/domain/trigram.cpp
   ../../src/domain/yao.cpp
   ../../src/hardware/audio_feedback.cpp
@@ -59,6 +61,7 @@ add_executable(jinggua_native_tests
   ../../src/hardware/wifi_manager.cpp
   ../../src/hardware/https_transport.cpp
   ../../src/application/jinggua_api_client.cpp
+  ../../src/application/offline_hexagram_code.cpp
   ../../src/application/ota_update.cpp
   ../../src/hardware/ota_update.cpp
   ../../src/ui/renderer.cpp

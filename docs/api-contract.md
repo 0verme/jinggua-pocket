@@ -231,3 +231,9 @@ client 只读取 `const DivinationSession`，不能改变本地会话；上传�
 
 REAL END-TO-END: PENDING（本 Issue 使用 fake transport/local contract，不宣称生产
 服务端联调通过）。
+
+## 11. 离线卦象码与 API 的边界
+
+Pocket `JingGua Offline Hexagram Code V1` 是另一种纯本地表示：由完整六爻的 `line_values` 确定性编码，且可由 Web 页面独立还原；它不是 `hexagram_number`、`divination_id`、History ID 或上传凭据。
+
+显示/计算卦象码不打开 Wi-Fi、不调用本契约的 HTTP endpoint、不写额外历史字段，也不改变结果页 `B` 上传入口。协议定义及固定样例见 [`offline-hexagram-code-v1.md`](offline-hexagram-code-v1.md)。

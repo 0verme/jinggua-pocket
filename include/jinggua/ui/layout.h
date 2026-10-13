@@ -40,10 +40,11 @@ constexpr int kLineResultValueY = 110;
 constexpr int kLineResultMovingY = 150;
 
 constexpr int kResultNameY = 42;
-constexpr int kResultNumberY = 78;
-constexpr int kResultMovingY = 96;
-constexpr int kHexagramTop = 116;
-constexpr int kHexagramLineSpacing = 15;
+constexpr int kResultNumberY = 76;
+constexpr int kResultMovingY = 94;
+constexpr int kHexagramTop = 112;
+constexpr int kHexagramLineSpacing = 11;
+constexpr int kResultCodeY = 180;
 constexpr int kHexagramLineWidth = 88;
 constexpr int kHexagramYinGap = 10;
 constexpr int kHexagramMarkerGap = 7;
@@ -146,6 +147,8 @@ constexpr bool isPocketLayoutSafe() noexcept {
          kFooterY + kFooterLineHeight <= kScreenHeight - kSafeBottom &&
          kContentY > kHeaderY + typography::kSectionLineHeight &&
          kHexagramLastY < kFooterSecondaryY &&
+         kHexagramMarkerLastY + 4 <= kResultCodeY &&
+         kResultCodeY + typography::kPrimaryLineHeight < kFooterY &&
          kHexagramMarkerLastY < kFooterY &&
          kSettingsFirmwareVersionLine2Y + kFooterLineHeight <
              kFooterSecondaryY &&

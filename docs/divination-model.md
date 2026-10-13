@@ -72,3 +72,11 @@ Host tests 使用固定 sequence fake。这样可以测试：
 ```
 
 领域核心不直接调用 Arduino `random()`。
+
+## 离线卦象码 V1
+
+`JingGua Offline Hexagram Code V1` 对 `Yao::coins.total` 的六个 6/7/8/9 值按
+`index 0 = 初爻` 到 `index 5 = 上爻` 计算 Base-4 编号。该纯计算独立于随机数、绘制、King Wen 卦序与 History ID；结果页只在完整 `DivinationResult` 存在后显示四位 `CODE NNNN`。历史记录已经保存同序的 `lineTotals`，重显时直接推导，无需改变历史 schema。
+
+完整公式、向量、范围和兼容规则见
+[`offline-hexagram-code-v1.md`](offline-hexagram-code-v1.md)。

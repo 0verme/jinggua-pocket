@@ -88,8 +88,15 @@ void runUiLayoutTests(TestRunner& runner) {
   EXPECT_EQ(runner, jinggua::ui::layout::coinCenterX(135, 2), 103);
   EXPECT_EQ(runner, jinggua::ui::layout::hexagramLineWidth(135), 88);
   EXPECT_EQ(runner, jinggua::ui::layout::hexagramLeft(135), 13);
-  EXPECT_EQ(runner, jinggua::ui::layout::kHexagramLastY, 191);
-  EXPECT_EQ(runner, jinggua::ui::layout::kHexagramMarkerLastY, 200);
+  EXPECT_EQ(runner, jinggua::ui::layout::kHexagramLineSpacing, 11);
+  EXPECT_EQ(runner, jinggua::ui::layout::kHexagramLastY, 167);
+  EXPECT_EQ(runner, jinggua::ui::layout::kHexagramMarkerLastY, 176);
+  EXPECT_EQ(runner, jinggua::ui::layout::kResultCodeY, 180);
+  EXPECT(runner, jinggua::ui::layout::kHexagramMarkerLastY + 4 <=
+                     jinggua::ui::layout::kResultCodeY);
+  EXPECT(runner, jinggua::ui::layout::kResultCodeY +
+                         jinggua::ui::typography::kPrimaryLineHeight <
+                     jinggua::ui::layout::footerY(240));
   EXPECT_EQ(runner, jinggua::ui::typography::kPrimaryLineHeight, 32);
   EXPECT_EQ(runner, jinggua::ui::typography::kSecondaryLineHeight, 16);
 
