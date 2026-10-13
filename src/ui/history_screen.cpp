@@ -6,6 +6,7 @@
 
 #include "jinggua/data/hexagrams.h"
 #include "jinggua/domain/history_record.h"
+#include "jinggua/domain/offline_hexagram_code.h"
 #include "jinggua/ui/layout.h"
 #include "jinggua/ui/theme.h"
 #include "jinggua/ui/typography.h"
@@ -120,6 +121,18 @@ void renderHistory(hardware::Display& display,
                    theme::kMuted, typography::kStatus);
   display.drawText(originalName, margin(display), layout::kHistoryOriginalNameY,
                    theme::kText, typography::kPrimary);
+
+  const auto code = domain::encodeOfflineHexagramCode(record.lineTotals);
+  if (code.has_value()) {
+    char digits[5]{};
+    char label[16]{};
+    if (domain::formatOfflineHexagramCode(*code, digits, sizeof(digits))) {
+      std::snprintf(label, sizeof(label), "CODE %s", digits);
+      display.drawText(label, display.width() - margin(display) - 70,
+                       layout::kHistoryOriginalLabelY, theme::kAccent,
+                       typography::kStatus);
+    }
+  }
 
   drawMovingLines(display, record, layout::kHistoryMovingY);
 
