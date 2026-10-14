@@ -65,6 +65,6 @@ OTA 需先连接 Wi-Fi，再由用户显式进入检查/安装。设备固定查
 - IMU Shake、BtnB、息屏/Light Sleep 唤醒、电流/续航和 NVS 物理故障恢复须在真实 StickS3 上验收。
 - OTA 真实下载/取消/掉电/rollback 未在设备验证；v0.3.0 prerelease 不被固定 OTA `releases/latest` 发现。
 - #15 只有 CAD 草案和验证计划；未声称外壳 render/实体通过。正式配网、设备绑定、二维码、历史同步、语音和 v1.0 均未完成。
-- 仓库尚无 `LICENSE` 文件，README 的许可证选择仍为 `TBD`；不要把本预览宣传为使用某个开源许可。
+- **当前主分支许可证**：本项目原创内容已采用 [Apache License 2.0](../LICENSE)；第三方资料遵循各自原有许可证。`v0.3.0` 发布时的历史记录未被改写，以当前仓库根目录 `LICENSE` 为最新声明。
 
 所有未实测硬件项统一保持 `PENDING_HARDWARE_VALIDATION`。本项目也不是医疗、法律、财务或其他专业建议的替代品。
