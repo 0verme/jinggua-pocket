@@ -13,7 +13,11 @@ void StickS3Buttons::begin() noexcept {
   // Keep the input contract explicit: M5Unified emits one click only after
   // its debounce interval and one hold event at the hold threshold.
   constexpr std::uint32_t kDebounceMs = 10;
+  // Separate deliberate A auto-casting from a short press; M5Unified defaults
+  // to 500 ms, while B keeps its existing default hold threshold.
+  constexpr std::uint32_t kPrimaryHoldThresholdMs = 1000;
   M5.BtnA.setDebounceThresh(kDebounceMs);
+  M5.BtnA.setHoldThresh(kPrimaryHoldThresholdMs);
   M5.BtnB.setDebounceThresh(kDebounceMs);
 #else
   // M5Unified initializes the StickS3 buttons together with the display.
@@ -41,8 +45,8 @@ application::InputEvent StickS3Buttons::poll() noexcept {
     return application::InputEvent::None;
   }
   if (M5.BtnA.wasHold()) {
-    Serial.println("[Input] BtnA hold -> LongPress");
-    return application::InputEvent::LongPress;
+    Serial.println("[Input] BtnA hold -> PrimaryLongPress");
+    return application::InputEvent::PrimaryLongPress;
   }
   if (M5.BtnB.wasHold()) {
     Serial.println("[Input] BtnB hold -> LongPress");

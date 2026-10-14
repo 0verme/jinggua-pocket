@@ -8,6 +8,8 @@ const char* inputEventName(InputEvent event) noexcept {
       return "NONE";
     case InputEvent::PrimaryClick:
       return "PRIMARY_CLICK";
+    case InputEvent::PrimaryLongPress:
+      return "PRIMARY_LONG_PRESS";
     case InputEvent::SecondaryClick:
       return "SECONDARY_CLICK";
     case InputEvent::LongPress:

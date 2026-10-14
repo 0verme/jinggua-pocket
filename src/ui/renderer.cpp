@@ -51,7 +51,8 @@ void Renderer::render(const application::StateMachine& stateMachine) noexcept {
     case application::AppState::LineResult:
       renderLineResult(display_, stateMachine.session(),
                        stateMachine.isLineAnimationActive() ? &coinAnimation_
-                                                             : nullptr);
+                                                             : nullptr,
+                       stateMachine.isAutoCompleting());
       break;
     case application::AppState::HexagramResult:
       renderHexagramResult(display_, stateMachine.session());

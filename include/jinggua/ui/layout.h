@@ -38,6 +38,7 @@ constexpr int kLineAnimationStatusY = 130;
 constexpr int kLineResultCoinsY = 68;
 constexpr int kLineResultValueY = 110;
 constexpr int kLineResultMovingY = 150;
+constexpr int kAutoLineStatusY = 184;
 
 constexpr int kResultNameY = 42;
 constexpr int kResultNumberY = 76;
@@ -140,7 +141,10 @@ constexpr bool isPocketLayoutSafe() noexcept {
          kSettingsFirmwareVersionLine2Y + kFooterLineHeight <
              kFooterSecondaryY &&
          kHomePrimaryY + typography::kPrimaryLineHeight < kFooterY &&
-         kCastingActionY + typography::kPrimaryLineHeight < kFooterY;
+         kCastingActionY + typography::kPrimaryLineHeight < kFooterY &&
+         kLineResultMovingY + typography::kPrimaryLineHeight <=
+             kAutoLineStatusY &&
+         kAutoLineStatusY + typography::kSecondaryLineHeight <= kFooterY;
 }
 
 static_assert(kScreenWidth == 135 && kScreenHeight == 240);

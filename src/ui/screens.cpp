@@ -274,13 +274,13 @@ void renderCasting(
   drawCoinPrompt(display);
   display.drawText("摇一摇", margin(display), layout::kCastingActionY,
                    theme::kText, typography::kPrimary);
-  drawFooter(display, "A 也可以");
+  drawFooter(display, "短按 A 逐爻", "长按 A 自动成卦");
 }
 
 void renderLineResult(
     hardware::Display& display,
     const application::DivinationSession& session,
-    const CoinAnimation* animation) noexcept {
+    const CoinAnimation* animation, bool autoCompleting) noexcept {
   clearScreen(display);
   const auto* line = session.latestLine();
   if (line == nullptr) {
@@ -294,10 +294,19 @@ void renderLineResult(
   drawLineHeading(display, line->position);
   if (animation != nullptr && animation->isActive()) {
     drawCoinAnimation(display, *animation, layout::kLineAnimationY);
-    display.drawText("翻转中…", margin(display),
-                     layout::kLineAnimationStatusY, theme::kMuted,
-                     typography::kSecondary);
-    drawFooter(display, "请稍候");
+    if (autoCompleting) {
+      char progress[24]{};
+      std::snprintf(progress, sizeof(progress), "正在成卦 %u/6",
+                    static_cast<unsigned>(session.lineCount()));
+      display.drawText(progress, margin(display),
+                       layout::kLineAnimationStatusY, theme::kMuted,
+                       typography::kSecondary);
+    } else {
+      display.drawText("翻转中…", margin(display),
+                       layout::kLineAnimationStatusY, theme::kMuted,
+                       typography::kSecondary);
+    }
+    drawFooter(display, autoCompleting ? "自动成卦中" : "请稍候");
     return;
   }
 
@@ -308,7 +317,18 @@ void renderLineResult(
   display.drawText(line->moving ? "动爻" : "静爻", margin(display),
                    layout::kLineResultMovingY, theme::kAccent,
                    typography::kPrimary);
-  drawFooter(display, session.isComplete() ? "A 查看本卦" : "A 继续");
+  if (autoCompleting) {
+    char progress[24]{};
+    std::snprintf(progress, sizeof(progress), "正在成卦 %u/6",
+                  static_cast<unsigned>(session.lineCount()));
+    display.drawText(progress, margin(display), layout::kAutoLineStatusY,
+                     theme::kMuted, typography::kSecondary);
+    drawFooter(display, "自动成卦中");
+  } else if (session.isComplete()) {
+    drawFooter(display, "A 查看本卦");
+  } else {
+    drawFooter(display, "短按 A 继续", "长按 A 自动成卦");
+  }
 }
 
 void renderHexagramResult(
