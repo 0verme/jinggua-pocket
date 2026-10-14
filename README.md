@@ -12,15 +12,12 @@ another divination firmware.
 长期愿景是让设备完成实体摇卦，在本地生成六爻、本卦、动爻与之卦，再
 由用户明确触发 Wi-Fi 联动，把完整解卦、历史与分享交给 JingGua Web。
 
-当前仓库包含 **Phase 0 工程初始化 + Hardware v0.2 离线骨架 + Issue #8
-Connected JingGua API Contract + Issue #16 安全 OTA 软件路径**：先把领域逻辑、
-输入抽象、状态机和真机硬件边界建立清楚；联网仅在用户显式操作后上传已完成结果
-或校验/下载固件，不引入云端随机、AI 或用户问题数据收集。
+当前软件版本线为 **v0.3.0 累积预览版**，汇总此前没有正式发布的 main 历史；不是只包含 Issue #42，也不是正式 `v1.0`。功能已覆盖离线六爻、IMU Shake、铜钱动画、历史、离线卦象码、用户主动 Wi-Fi/API、安全 OTA 软件路径及长按 A 自动成卦；真机验收仍单独待完成。审计和完整 PR 列表见 [`docs/releases/v0.3.0-audit.md`](docs/releases/v0.3.0-audit.md) 与 [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md)。
 
 ## 当前状态
 
 - PlatformIO + Arduino Framework 工程已固定到 `m5stack-sticks3`。
-- Button Mode 已实现：每次按键生成一爻，严格从初爻到上爻。
+- Button Mode 已实现：A 短按逐爻起卦；在 Casting/未完成结果页长按 A（约 1000 ms）可自动补齐 0～5 条剩余爻，动画逐次串行并在完成后进入本卦结果页；真机手感/显示验收待验。
 - 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
 - IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
   峰间隔与 cooldown；Button 仍可作为 fallback。
@@ -32,7 +29,8 @@ Connected JingGua API Contract + Issue #16 安全 OTA 软件路径**：先把领
   （见下文「Wi-Fi/API 开发配置」）。
 - **安全 OTA 软件路径已实现（Issue #16）**：从已连接页显式进入、再次确认检查/安装，
   下载仅允许受限 GitHub Release URL，TLS、SHA-256、固件/分区上限、inactive-slot
-  写入和 bootloader rollback 均有软件门禁；当前 Release 尚不存在，真机更新与掉电/回滚
+  写入和 bootloader rollback 均有软件门禁；v0.3.0 为预览 Release。GitHub `releases/latest`
+  通常不选择 prerelease，因此当前设备的固定 OTA 查询不会发现本预览资产；真机更新与掉电/回滚
   仍为 `PENDING_HARDWARE_VALIDATION`。详见 [`docs/ota.md`](docs/ota.md)。
 - **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
   → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
@@ -47,7 +45,7 @@ Connected JingGua API Contract + Issue #16 安全 OTA 软件路径**：先把领
 - UI 已针对 StickS3 的 135×240 portrait 小屏完成基础 polish：一屏一个主要
   动作、少文字、大字号、强层级，使用统一 layout/theme/typography constants；
   Pocket 只展示本卦、动爻与之卦，不内置完整《周易》文本。
-- v0.2 完全离线运行起卦，Wi-Fi 只在用户明确动作后开启。
+- 本地起卦和历史离线运行；Wi-Fi 只在用户明确动作后开启。长按 A 自动补全复用现有单爻随机和动画链路。
 
 ## Hardware
 
@@ -202,7 +200,8 @@ API URL 和公开 CA certificate；脚本不会打印 API 配置。没有 CA 时
 `setInsecure()`，而是 fail closed。OTA 发布构建另设置
 `JINGGUA_FIRMWARE_VERSION` 与 `JINGGUA_OTA_ROOT_CA`；没有 OTA CA 时更新器拒绝
 启动网络操作。GitHub Release manifest/asset 的契约、哈希生成命令和硬件边界见
-[`docs/ota.md`](docs/ota.md)；当前基线尚无 Release，软件路径需要随 #18 资产发布才有可更新版本。
+[`docs/ota.md`](docs/ota.md)。v0.3.0 prerelease 有 USB 固件资产，但固定的 `releases/latest`
+OTA 地址不会选择 prerelease。
 `.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
 credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
 详见 [`docs/hardware.md`](docs/hardware.md) 的「Wi-Fi Provisioning TODO」。
@@ -214,12 +213,9 @@ credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围�
 - **v0.1**：StickS3、Button 起卦、三枚铜钱、六爻、本卦、动爻、之卦、离线。
 - **v0.2**：IMU Shake、铜钱动画、音效、135×240 UI polish（Issue #6）、自动息屏与
   低功耗管理（Issue #5）。
-- **v0.3**：用户明确触发 Wi-Fi、JingGua API 最小 Contract（Issue #8）；设备绑定、
-  二维码和手机完整解卦另行实现。
-- **v0.4**：历史记录与 Web / Device 同步。
-- **v0.5**：麦克风与语音问事。
-- **v0.6**：安全 OTA 客户端（Issue #16）与 Release workflow/assets（Issue #18）；硬件验证单独跟踪。
-- **v1.0**：定制外壳、稳定固件与正式发布。
+- **v0.3.0 累积预览**：Wi-Fi/API、离线历史与卦象码、安全 OTA 软件路径、铜钱/小屏优化及 Issue #42 长按 A 自动成卦。设备绑定、二维码、历史云同步和语音产品流程尚未交付。
+- **后续版本**：正式凭据配网、设备绑定/分享/同步、语音能力及量产外壳需分别完成契约、实现和验收；麦克风 PR 仅为录音研究。
+- **v1.0**：正式发布总控仍由 Issue #18 跟踪；还需完成许可证选择、定制外壳、稳定固件与硬件验收。本次预览不关闭该 Issue，也不代表实机验证通过。
 
 ## Related Project
 
