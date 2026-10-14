@@ -47,11 +47,12 @@ bitmap 原样保留，避免 Pillow/FreeType 版本变化重绘全部字体。�
 | 次要信息 | `kSecondary` | 1 | 16 px |
 | 状态信息 | `kStatus` | 1 | 16 px |
 | 页脚 | `kFooter` | 1 | 16 px |
-| 铜钱面 | `kCoin` | 2 | 32 px |
 
 坐标、safe area、页眉/页脚、铜钱间距和六爻行距统一由
-`include/jinggua/ui/layout.h` 管理；颜色由 `include/jinggua/ui/theme.h` 管理。
-详见 [`ui-guidelines.md`](ui-guidelines.md)。
+`include/jinggua/ui/layout.h` 管理；铜钱图案由
+`include/jinggua/ui/coin_visual.h` 使用 M5GFX primitives 绘制，不依赖文字字形；
+常规 UI 颜色由 `include/jinggua/ui/theme.h` 管理。详见
+[`ui-guidelines.md`](ui-guidelines.md)。
 
 ## Flash / RAM 记录
 

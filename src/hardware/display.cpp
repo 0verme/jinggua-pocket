@@ -141,6 +141,21 @@ void Display::fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
 #endif
 }
 
+void Display::fillRect(int x, int y, int width, int height,
+                       Color color) noexcept {
+#if defined(ARDUINO)
+  if (ready_) {
+    M5.Display.fillRect(x, y, width, height, color);
+  }
+#else
+  (void)x;
+  (void)y;
+  (void)width;
+  (void)height;
+  (void)color;
+#endif
+}
+
 int Display::width() const noexcept {
 #if defined(ARDUINO)
   return ready_ ? M5.Display.width() : 135;
