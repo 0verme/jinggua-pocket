@@ -1,0 +1,197 @@
+# JingGua Pocket · 工程与开发指南
+
+> 本文承接原 README 的硬件参数、实现状态、架构和开发操作，内容对应 **v0.3.0 累积预览版**。功能或硬件验收状态请以最新 Release、Issue 与实际代码为准。
+
+[← 返回产品首页](../README.md) · [预览版快速开始](quick-start.md) · [发布记录](releases/v0.3.0.md)
+
+## 当前状态
+
+- PlatformIO + Arduino Framework 工程已固定到 `m5stack-sticks3`。
+- Button Mode 已实现：A 短按逐爻起卦；在 Casting/未完成结果页长按 A（约 1000 ms）可自动补齐 0～5 条剩余爻，动画逐次串行并在完成后进入本卦结果页；真机手感/显示验收待验。
+- 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
+- IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
+  峰间隔与 cooldown；Button 仍可作为 fallback。
+- **Wi-Fi 与 JingGua API 已实现（Issue #7/#8，离线优先）**：设备启动时将
+  radio 置为关闭，只有用户从设置页显式触发才连接；连接异步非阻塞、15 秒超时、
+  失败/超时不自动重连。完整六爻先在本地生成，结果页按 B 才上传；上传使用
+  HTTPS、CA 校验、bounded payload/response、错误分类和手动 retry。当前不包含
+  设备绑定、二维码或历史自动同步。凭据通过构建期环境变量注入，不提交到仓库
+  （见下文「Wi-Fi/API 开发配置」）。
+- **安全 OTA 软件路径已实现（Issue #16）**：从已连接页显式进入、再次确认检查/安装，
+  下载仅允许受限 GitHub Release URL，TLS、SHA-256、固件/分区上限、inactive-slot
+  写入和 bootloader rollback 均有软件门禁；v0.3.0 为预览 Release。GitHub `releases/latest`
+  通常不选择 prerelease，因此当前设备的固定 OTA 查询不会发现本预览资产；真机更新与掉电/回滚
+  仍为 `PENDING_HARDWARE_VALIDATION`。详见 [`docs/ota.md`](ota.md)。
+- **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
+  → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
+  接入；真实电流、唤醒稳定性和续航仍为 `PENDING DEVICE VALIDATION`。
+- **声音反馈已实现（Issue #3）**：使用短合成 tone 提供 Start、Cast、Complete
+  和 Error 确认；固定单 channel、非阻塞、队列满时丢弃，Settings 长按可
+  runtime mute。默认固件启用 Speaker，麦克风 research environment 保持
+  Speaker 关闭。
+- 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
+  该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
+  [`docs/microphone-research.md`](microphone-research.md)。
+- UI 已针对 StickS3 的 135×240 portrait 小屏完成基础 polish：一屏一个主要
+  动作、少文字、大字号、强层级，使用统一 layout/theme/typography constants；
+  Pocket 只展示本卦、动爻与之卦，不内置完整《周易》文本。
+- 本地起卦和历史离线运行；Wi-Fi 只在用户明确动作后开启。长按 A 自动补全复用现有单爻随机和动画链路。
+
+## Hardware
+
+| 项目 | 选择 |
+| --- | --- |
+| Target | M5Stack StickS3 |
+| MCU | ESP32-S3-PICO-1-N8R8 / ESP32-S3 |
+| PlatformIO board id | `esp32-s3-devkitc-1` |
+| Framework | Arduino |
+| Display driver | M5Unified / M5GFX，StickS3 内置 ST7789P3 |
+| IMU | BMI270，通过 M5Unified `IMU_Class` |
+| Button API | M5Unified `M5.BtnA` / `M5.BtnB` |
+| Audio | M5Unified `M5.Speaker` / ES8311 I2S TX（普通固件） |
+
+PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录在
+[`docs/hardware.md`](hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。Issue #15 的
+参数化 open-access bumper 草案、尺寸来源、prototype BOM 和硬件验证计划见
+[`cad/issue-15/README.md`](../cad/issue-15/README.md)；尚无 OpenSCAD render 或实体样机验收。
+
+官方资料：
+
+- [StickS3 product documentation](https://docs.m5stack.com/en/core/StickS3)
+- [StickS3 Arduino Button](https://docs.m5stack.com/en/arduino/m5sticks3/button)
+- [StickS3 Arduino IMU](https://docs.m5stack.com/en/arduino/m5sticks3/imu)
+- [StickS3 Arduino Display](https://docs.m5stack.com/en/arduino/m5sticks3/display)
+- [M5Unified](https://github.com/m5stack/M5Unified)
+- [M5PM1](https://github.com/m5stack/M5PM1)
+
+## Features
+
+### Hardware v0.1
+
+- 启动页：`静卦 / 摇一摇 / 或按 A`
+- 准备页：默念所问之事
+- Casting：显示当前爻序和三枚铜钱，Shake 为主动作，Button 为 fallback
+- LineResult：CoinAnimation 结束后显示三枚铜钱、阴/阳、静爻/动爻和下一步
+- 结果页：本卦名称、完整六爻图、动爻和之卦；无动爻时不进入空的之卦页
+- `InputEvent` 预留 `SHAKE`，硬件摇动检测不会侵入领域层
+
+### 明确不在本阶段
+
+AI 解卦、完整经文、OAuth、数据库管理、BLE 配网、设备绑定、历史自动同步、
+二维码、语音、自定义 PCB、外壳和多硬件兼容都不在本 Issue #8 scope 内。
+
+## Architecture
+
+```text
+hardware (StickS3 / M5Unified / HTTPS OTA/API)
+        │  InputEvent + adapters
+        ▼
+application (Session + StateMachine + ApiClient + FirmwareUpdateClient)
+        │  const domain values / ports
+        ▼
+domain (coin / yao / trigram / hexagram / transformation)
+        ▲
+        │ static lookup tables
+data (8 trigrams + 64 hexagrams)
+```
+
+- `domain/` 只依赖 C++ 标准库，不依赖屏幕、按钮、M5Stack SDK 或 Arduino。
+- `application/` 通过 `RandomProvider` 接口取得铜钱输入，并管理六次起卦。
+- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU、显示、电源和音频适配。
+- `PowerManager` 是可在主机测试的 inactivity 状态逻辑；
+  `StickS3PowerController` 将其映射到 Display brightness、Display Off 和
+  ESP32-S3 light sleep。
+- `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算；
+  `ui/layout.h`、`ui/theme.h`、`ui/typography.h` 统一小屏布局、颜色和字号。
+- `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
+- `tools/merge_font_assets.py` 将 Noto Sans SC 中缺少的实际文案字形合并进 VLW
+  子集并保留既有 bitmap；`docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
+
+详见：
+
+- [`docs/architecture.md`](architecture.md)
+- [`docs/divination-model.md`](divination-model.md)
+- [`docs/state-machine.md`](state-machine.md)
+- [`docs/power-management.md`](power-management.md)
+- [`docs/coin-animation.md`](coin-animation.md)
+- [`docs/api-contract.md`](api-contract.md)
+- [`docs/ota.md`](ota.md)
+- [`docs/audio-feedback.md`](audio-feedback.md)
+- [`docs/ui-guidelines.md`](ui-guidelines.md)
+
+## Development
+
+当前开发预览版的首次运行、离线起卦、Wi-Fi/OTA 限制和已知未完成项见
+[快速开始与限制说明](quick-start.md)。该指南不代表 v1.0 发布或硬件验收通过。
+
+Python 命令示例使用 Python 3：macOS/Linux 使用 `python3`，Windows PowerShell 使用
+`py -3`；PlatformIO 命令直接使用 `pio`。
+
+### Host native tests
+
+领域与应用层可在没有 StickS3 的主机环境编译：
+
+```bash
+cmake -S test/native -B build/native
+cmake --build build/native
+ctest --test-dir build/native --output-on-failure
+```
+
+测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序、
+完整状态流、PowerManager 的 inactivity threshold、活动唤醒、sleep inhibition 和
+`millis()` wrap-around，以及 API contract 的 fake transport/client、离线保护、
+错误、bounded response 和手动 retry；OTA manifest/version、显式检查/安装、离线保护、
+下载进度与取消。Host tests 使用 deterministic `RandomProvider`，不会调用 Arduino `random()`。
+OTA manifest 生成器由 `python3 -m unittest discover -s test/python -p 'test_*.py'` 验证。
+
+字体子集完整性、分区/rollback 检查与 Release manifest 工具测试：
+
+```bash
+python3 tools/check_font_asset.py
+python3 tools/check_ota_support.py
+python3 -m unittest discover -s test/python -p 'test_*.py'
+```
+
+### StickS3 firmware
+
+安装 PlatformIO 后执行：
+
+```bash
+pio run -e m5stack-sticks3
+python3 tools/check_ota_support.py
+pio run -e m5stack-sticks3 -t upload
+pio device monitor -b 115200
+```
+
+工程只有一个硬件 environment；native tests 使用独立 CMake harness，避免
+为了主机测试伪造一个额外的硬件兼容 environment。
+
+### Wi-Fi/API 开发配置
+
+固件默认不定义任何 Wi-Fi 凭据或 API 配置；未配置时设置页点「连接」会提示
+「未配置 Wi-Fi」，即使连接成功但没有 API URL/CA，上传也会安全失败。固件仍可
+编译、刷机、离线起卦和保存本地历史。需要真机验证时，在构建前设置环境变量
+（不要写进仓库）：
+
+```bash
+# macOS / Linux
+JINGGUA_WIFI_SSID="你的SSID" JINGGUA_WIFI_PASSWORD="你的密码" pio run -e m5stack-sticks3
+
+# Windows (PowerShell)
+$env:JINGGUA_WIFI_SSID="你的SSID"
+$env:JINGGUA_WIFI_PASSWORD="你的密码"
+$env:JINGGUA_API_URL="https://your-jinggua-host.example/api/divinations"
+$env:JINGGUA_API_ROOT_CA="-----BEGIN CERTIFICATE-----..."
+pio run -e m5stack-sticks3
+```
+
+`tools/wifi_credentials.py` 注入 Wi-Fi 构建参数，`tools/api_config.py` 注入
+API URL 和公开 CA certificate；脚本不会打印 API 配置。没有 CA 时不会调用
+`setInsecure()`，而是 fail closed。OTA 发布构建另设置
+`JINGGUA_FIRMWARE_VERSION` 与 `JINGGUA_OTA_ROOT_CA`；没有 OTA CA 时更新器拒绝
+启动网络操作。GitHub Release manifest/asset 的契约、哈希生成命令和硬件边界见
+[`docs/ota.md`](ota.md)。v0.3.0 prerelease 有 USB 固件资产，但固定的 `releases/latest`
+OTA 地址不会选择 prerelease。
+`.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
+credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
+详见 [`docs/hardware.md`](hardware.md) 的「Wi-Fi Provisioning TODO」。
