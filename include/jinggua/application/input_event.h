@@ -5,6 +5,7 @@ namespace jinggua::application {
 enum class InputEvent {
   None,
   PrimaryClick,
+  PrimaryLongPress,
   SecondaryClick,
   LongPress,
   Shake,

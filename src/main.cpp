@@ -414,6 +414,8 @@ void loop() {
   stateMachine.update(nowMs);
   const auto previousLineCount = stateMachine.session().lineCount();
   const bool animationWasActive = stateMachine.isLineAnimationActive();
+  const bool displayOffBeforeInput =
+      powerManager.state() == jinggua::application::PowerState::DisplayOff;
   auto event = buttons.poll();
 
   const auto imuPollIntervalMs = powerManager.imuPollIntervalMs();
@@ -448,7 +450,7 @@ void loop() {
 
   const auto currentState = stateMachine.state();
   const bool shakeInputActive =
-      !animationWasActive &&
+      !animationWasActive && !stateMachine.isAutoCompleting() &&
       (currentState == jinggua::application::AppState::Casting ||
        (currentState == jinggua::application::AppState::LineResult &&
         !stateMachine.session().isComplete()) ||
@@ -471,7 +473,19 @@ void loop() {
     (void)powerManager.recordActivity(nowMs);
   }
 
+  if (displayOffBeforeInput &&
+      event == jinggua::application::InputEvent::PrimaryLongPress) {
+    // The first A hold only wakes a dark display; a fresh press after release
+    // is required to request automatic completion.
+    Serial.println("[Input] consumed A long press used to wake display");
+    event = jinggua::application::InputEvent::None;
+    shakeDetector.reset();
+  }
+
   stateMachine.handleInput(event);
+  if (stateMachine.isAutoCompleting()) {
+    shakeDetector.reset();
+  }
   if (event != jinggua::application::InputEvent::None &&
       event != jinggua::application::InputEvent::Shake &&
       !animationWasActive) {

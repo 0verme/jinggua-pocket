@@ -7,6 +7,19 @@
 #include "jinggua/domain/history_record.h"
 
 namespace jinggua::application {
+namespace {
+
+bool isLongPress(InputEvent event) noexcept {
+  return event == InputEvent::LongPress ||
+         event == InputEvent::PrimaryLongPress;
+}
+
+bool deadlineReached(std::uint32_t nowMs,
+                     std::uint32_t deadlineMs) noexcept {
+  return static_cast<std::uint32_t>(nowMs - deadlineMs) < 0x80000000U;
+}
+
+}  // namespace
 
 const char* appStateName(AppState state) noexcept {
   switch (state) {
@@ -111,7 +124,17 @@ void StateMachine::begin() noexcept {
 }
 
 void StateMachine::handleInput(InputEvent event) noexcept {
-  if (event == InputEvent::None || lineAnimationActive_) {
+  if (event == InputEvent::None || autoCompleting_) {
+    return;
+  }
+  if (lineAnimationActive_) {
+    if (event == InputEvent::PrimaryLongPress &&
+        (state_ == AppState::Casting || state_ == AppState::LineResult) &&
+        !session_.isComplete()) {
+      // Latch the one permitted input while an existing coin animation is
+      // running; the next line is not generated until that animation settles.
+      startAutoCompletion();
+    }
     return;
   }
 
@@ -124,7 +147,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(AppState::Prepare);
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(wifi_ != nullptr ? AppState::Settings : AppState::History);
-      } else if (event == InputEvent::LongPress) {
+      } else if (isLongPress(event)) {
         // Keep the Wi-Fi shortcut on B while exposing history on the long
         // press path when both optional features are available.
         transitionTo(AppState::History);
@@ -140,12 +163,17 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       }
       break;
     case AppState::Casting:
-      if (event == InputEvent::PrimaryClick || event == InputEvent::Shake) {
+      if (event == InputEvent::PrimaryLongPress) {
+        startAutoCompletion();
+      } else if (event == InputEvent::PrimaryClick ||
+                 event == InputEvent::Shake) {
         castLine();
       }
       break;
     case AppState::LineResult:
-      if (event == InputEvent::Shake && !session_.isComplete()) {
+      if (event == InputEvent::PrimaryLongPress) {
+        startAutoCompletion();
+      } else if (event == InputEvent::Shake && !session_.isComplete()) {
         // Shake is an acknowledgement and the next cast in one gesture, so
         // six shakes can complete a session without requiring button input.
         castLine();
@@ -172,7 +200,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
       }
       break;
     case AppState::ResetConfirm:
-      if (event == InputEvent::PrimaryClick || event == InputEvent::LongPress) {
+      if (event == InputEvent::PrimaryClick || isLongPress(event)) {
         session_.reset();
         localRecordId_ = 0;
         uploadStarted_ = false;
@@ -186,7 +214,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         moveHistoryCursor(-1);  // A = older
       } else if (event == InputEvent::SecondaryClick) {
         moveHistoryCursor(1);  // B = newer
-      } else if (event == InputEvent::LongPress) {
+      } else if (isLongPress(event)) {
         transitionTo(AppState::Welcome);
       }
       break;
@@ -203,7 +231,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         }
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(AppState::Welcome);
-      } else if (event == InputEvent::LongPress) {
+      } else if (isLongPress(event)) {
         // Keep the existing Wi-Fi settings flow on A/B and use the existing
         // long-press gesture for the small runtime-only sound toggle.
         toggleSoundEnabled();
@@ -221,7 +249,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
         transitionTo(AppState::Settings);
       } else if (event == InputEvent::SecondaryClick) {
         transitionTo(AppState::Settings);
-      } else if (event == InputEvent::LongPress) {
+      } else if (isLongPress(event)) {
         transitionTo(AppState::OtaPrompt);
       }
       break;
@@ -304,7 +332,7 @@ void StateMachine::handleInput(InputEvent event) noexcept {
 }
 
 bool StateMachine::sleepAllowed() const noexcept {
-  if (lineAnimationActive_) {
+  if (lineAnimationActive_ || autoCompleting_) {
     return false;
   }
 
@@ -324,6 +352,11 @@ bool StateMachine::sleepAllowed() const noexcept {
 }
 
 void StateMachine::update(std::uint32_t nowMs) noexcept {
+  if (autoCompleting_) {
+    updateAutoCompletion(nowMs);
+    return;
+  }
+
   if (state_ == AppState::OtaChecking ||
       state_ == AppState::OtaDownloading ||
       state_ == AppState::OtaCancelling ||
@@ -391,6 +424,45 @@ void StateMachine::finishLineAnimation() noexcept {
   }
   lineAnimationActive_ = false;
   dirty_ = true;
+}
+
+void StateMachine::startAutoCompletion() noexcept {
+  if (autoCompleting_ || session_.isComplete() ||
+      (state_ != AppState::Casting && state_ != AppState::LineResult)) {
+    return;
+  }
+
+  autoCompleting_ = true;
+  autoResultWaitStarted_ = false;
+  dirty_ = true;
+  if (!lineAnimationActive_) {
+    castLine();
+  }
+}
+
+void StateMachine::updateAutoCompletion(std::uint32_t nowMs) noexcept {
+  if (lineAnimationActive_) {
+    return;
+  }
+
+  if (session_.isComplete()) {
+    autoCompleting_ = false;
+    autoResultWaitStarted_ = false;
+    transitionTo(AppState::HexagramResult);
+    return;
+  }
+
+  if (!autoResultWaitStarted_) {
+    autoAdvanceAtMs_ = nowMs + kAutoLineResultDisplayMs;
+    autoResultWaitStarted_ = true;
+    return;
+  }
+  if (!deadlineReached(nowMs, autoAdvanceAtMs_)) {
+    return;
+  }
+
+  autoResultWaitStarted_ = false;
+  castLine();
 }
 
 void StateMachine::castLine() noexcept {

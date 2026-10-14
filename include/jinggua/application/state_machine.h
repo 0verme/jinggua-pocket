@@ -47,6 +47,8 @@ const char* appStateName(AppState state) noexcept;
 
 class StateMachine final {
  public:
+  static constexpr std::uint32_t kAutoLineResultDisplayMs = 250U;
+
   // Construct a state machine. `history` is optional — when nullptr, history
   // persistence is silently skipped and the History state shows an empty list.
   // Existing tests construct StateMachine(session) without the second
@@ -77,6 +79,7 @@ class StateMachine final {
 
   AppState state() const noexcept { return state_; }
   bool isLineAnimationActive() const noexcept { return lineAnimationActive_; }
+  bool isAutoCompleting() const noexcept { return autoCompleting_; }
   // Automatic DisplayOff/LightSleep is blocked during animation, reset
   // confirmation, active Wi-Fi work and OTA network/flash/finalization. This
   // keeps lifecycle policy explicit without making PowerManager depend on AppState.
@@ -97,6 +100,8 @@ class StateMachine final {
 
  private:
   void transitionTo(AppState next) noexcept;
+  void startAutoCompletion() noexcept;
+  void updateAutoCompletion(std::uint32_t nowMs) noexcept;
   void castLine() noexcept;
   void playSound(SoundCue cue) noexcept;
   void handleResultAction() noexcept;
@@ -127,6 +132,9 @@ class StateMachine final {
   AppState state_{AppState::Boot};
   AppState resetReturnState_{AppState::HexagramResult};
   bool lineAnimationActive_{false};
+  bool autoCompleting_{false};
+  bool autoResultWaitStarted_{false};
+  std::uint32_t autoAdvanceAtMs_{0};
   std::size_t historyCursor_{0};
   bool soundEnabled_{true};
   bool dirty_{true};

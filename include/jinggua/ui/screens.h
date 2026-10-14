@@ -16,7 +16,8 @@ void renderCasting(hardware::Display& display,
 void renderLineResult(
     hardware::Display& display,
     const application::DivinationSession& session,
-    const CoinAnimation* animation = nullptr) noexcept;
+    const CoinAnimation* animation = nullptr,
+    bool autoCompleting = false) noexcept;
 void renderHexagramResult(
     hardware::Display& display,
     const application::DivinationSession& session) noexcept;
