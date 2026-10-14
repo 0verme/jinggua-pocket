@@ -6,6 +6,7 @@ void runAudioFeedbackTests(TestRunner& runner);
 void runBootDiagnosticsTests(TestRunner& runner);
 void runCoinTests(TestRunner& runner);
 void runCoinAnimationTests(TestRunner& runner);
+void runCoinVisualTests(TestRunner& runner);
 void runDivinationFlowTests(TestRunner& runner);
 void runYaoTests(TestRunner& runner);
 void runHexagramTests(TestRunner& runner);
@@ -32,6 +33,7 @@ int main() {
   runBootDiagnosticsTests(runner);
   runCoinTests(runner);
   runCoinAnimationTests(runner);
+  runCoinVisualTests(runner);
   runDivinationFlowTests(runner);
   runYaoTests(runner);
   runHexagramTests(runner);

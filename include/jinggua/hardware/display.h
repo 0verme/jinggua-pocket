@@ -26,6 +26,7 @@ class Display final {
                    Color color) noexcept;
   void fillEllipse(int centerX, int centerY, int radiusX, int radiusY,
                    Color color) noexcept;
+  void fillRect(int x, int y, int width, int height, Color color) noexcept;
 
   int width() const noexcept;
   int height() const noexcept;

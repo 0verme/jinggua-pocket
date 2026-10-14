@@ -72,19 +72,6 @@ constexpr int kHistoryChangedLabelY = 140;
 constexpr int kHistoryChangedNameY = 158;
 
 constexpr int kCoinSpacing = 36;
-constexpr int kCoinPromptRadiusX = 14;
-constexpr int kCoinPromptRadiusY = 20;
-constexpr int kCoinResultRadiusX = 13;
-constexpr int kCoinResultRadiusY = 18;
-constexpr int kCoinAnimationRadiusY = 22;
-constexpr int kCoinAnimationMinRadiusX = 2;
-constexpr int kCoinAnimationRadiusXRange = 16;
-constexpr int kCoinAnimationVisibleRadiusX = 6;
-constexpr int kCoinSymbolHalfWidth = 12;
-constexpr int kCoinPromptSymbolOffset = 6;
-constexpr int kCoinResultSymbolYOffset = 8;
-constexpr int kCoinAnimationSymbolOffset = 6;
-constexpr int kCoinAnimationSymbolYOffset = 6;
 
 constexpr int kHexagramLastY = kHexagramTop + 5 * kHexagramLineSpacing;
 constexpr int kHexagramMarkerLastY =

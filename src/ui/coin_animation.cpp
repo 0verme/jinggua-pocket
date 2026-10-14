@@ -2,9 +2,8 @@
 
 #include <cstdint>
 
+#include "jinggua/ui/coin_visual.h"
 #include "jinggua/ui/layout.h"
-#include "jinggua/ui/theme.h"
-#include "jinggua/ui/typography.h"
 
 namespace jinggua::ui {
 namespace {
@@ -155,23 +154,8 @@ void drawCoinAnimation(hardware::Display& display,
   for (std::size_t index = 0; index < 3; ++index) {
     const auto& frame = animation.frame(index);
     const int coinCenterX = layout::coinCenterX(display.width(), index);
-    const int radiusX = layout::kCoinAnimationMinRadiusX +
-                        (layout::kCoinAnimationRadiusXRange *
-                         static_cast<int>(frame.widthPercent)) /
-                            100;
-
-    display.fillEllipse(coinCenterX, centerY, radiusX,
-                        layout::kCoinAnimationRadiusY, theme::kAccent);
-    display.drawEllipse(coinCenterX, centerY, radiusX,
-                        layout::kCoinAnimationRadiusY, theme::kText);
-    if (radiusX >= layout::kCoinAnimationVisibleRadiusX) {
-      const char* symbol =
-          frame.side == domain::CoinSide::Front ? "●" : "○";
-      display.drawText(symbol,
-                       coinCenterX - layout::kCoinAnimationSymbolOffset,
-                       centerY - layout::kCoinAnimationSymbolYOffset,
-                       theme::kBackground, typography::kSecondary);
-    }
+    coin_visual::drawCoin(display, frame.side, coinCenterX, centerY,
+                           frame.widthPercent);
   }
 }
 

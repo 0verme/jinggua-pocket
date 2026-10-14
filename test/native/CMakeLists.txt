@@ -11,6 +11,7 @@ add_executable(jinggua_native_tests
   test_boot_diagnostics.cpp
   test_coin.cpp
   test_coin_animation.cpp
+  test_coin_visual.cpp
   test_divination_flow.cpp
   test_hexagram.cpp
   test_history_application.cpp

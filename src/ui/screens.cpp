@@ -7,6 +7,7 @@
 #include "jinggua/application/offline_hexagram_code.h"
 #include "jinggua/domain/offline_hexagram_code.h"
 #include "jinggua/ui/coin_animation.h"
+#include "jinggua/ui/coin_visual.h"
 #include "jinggua/ui/firmware_version.h"
 #include "jinggua/ui/layout.h"
 #include "jinggua/ui/theme.h"
@@ -44,10 +45,6 @@ void drawFooter(hardware::Display& display, const char* primary,
   }
   display.drawText(primary, margin(display), layout::footerY(display.height()),
                    theme::kMuted, typography::kFooter);
-}
-
-const char* coinSymbol(domain::CoinSide side) noexcept {
-  return side == domain::CoinSide::Front ? "●" : "○";
 }
 
 const char* linePositionName(std::uint8_t position) noexcept {
@@ -134,13 +131,7 @@ void drawCoinPrompt(hardware::Display& display) noexcept {
   const int centerY = layout::kCastingCoinsY;
   for (std::size_t index = 0; index < 3; ++index) {
     const int centerX = layout::coinCenterX(display.width(), index);
-    display.fillEllipse(centerX, centerY, layout::kCoinPromptRadiusX,
-                        layout::kCoinPromptRadiusY, theme::kAccent);
-    display.drawEllipse(centerX, centerY, layout::kCoinPromptRadiusX,
-                        layout::kCoinPromptRadiusY, theme::kText);
-    display.drawText("●", centerX - layout::kCoinPromptSymbolOffset,
-                     centerY - layout::kCoinPromptSymbolOffset,
-                     theme::kBackground, typography::kSecondary);
+    coin_visual::drawCoin(display, domain::CoinSide::Front, centerX, centerY);
   }
 }
 
@@ -149,14 +140,7 @@ void drawCoinResult(hardware::Display& display,
   const int centerY = layout::kLineResultCoinsY;
   for (std::size_t index = 0; index < result.coins.size(); ++index) {
     const int centerX = layout::coinCenterX(display.width(), index);
-    display.fillEllipse(centerX, centerY, layout::kCoinResultRadiusX,
-                        layout::kCoinResultRadiusY, theme::kAccent);
-    display.drawEllipse(centerX, centerY, layout::kCoinResultRadiusX,
-                        layout::kCoinResultRadiusY, theme::kText);
-    display.drawText(coinSymbol(result.coins[index]),
-                     centerX - layout::kCoinSymbolHalfWidth,
-                     centerY - layout::kCoinResultSymbolYOffset,
-                     theme::kBackground, typography::kCoin);
+    coin_visual::drawCoin(display, result.coins[index], centerX, centerY);
   }
 }
 

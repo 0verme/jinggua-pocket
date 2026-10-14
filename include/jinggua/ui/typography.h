@@ -12,7 +12,6 @@ constexpr std::uint8_t kPrimary = 2;
 constexpr std::uint8_t kSecondary = 1;
 constexpr std::uint8_t kStatus = 1;
 constexpr std::uint8_t kFooter = 1;
-constexpr std::uint8_t kCoin = 2;
 
 // Noto Sans SC glyphs are rasterized at 12 px; the generated VLW asset has a
 // 16 px line box and M5GFX scales that same asset.
