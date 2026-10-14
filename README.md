@@ -95,4 +95,6 @@ README_MEDIA:SHOWCASE_END -->
 
 ## 许可证
 
-**TBD** — 尚未确定正式许可证，仓库目前没有 `LICENSE` 文件。代码公开可见不意味着已经授予任意复制、修改或再分发的许可；请等待正式许可证声明。
+本项目原创代码与文档采用 **[Apache License 2.0](LICENSE)** 开源，Copyright © 2026 0verme。
+
+你可以按照 Apache 2.0 条款使用、修改与分发（包括商业用途），并须遵守相应的版权、许可与变更声明要求。第三方代码与资源继续遵循其各自的许可证；例如 `cad/issue-15/reference/` 中的 [M5Stack MIT 许可](cad/issue-15/reference/LICENSE) 不因本项目选用 Apache 2.0 而改变。
