@@ -8,10 +8,11 @@
 
 [**体验静卦网页版**](https://gua.overme.cn/) · [**下载预览固件**](https://github.com/0verme/jinggua-pocket/releases/tag/v0.3.0) · [**了解如何烧录**](docs/quick-start.md)
 
-<!-- README_MEDIA:HERO_START
-素材准备完成后，在此插入 assets/readme/hero.webp 的真实设备横幅。
-保留实物外观与真实屏幕内容；禁止用概念渲染冒充实拍。
-README_MEDIA:HERO_END -->
+<!-- README_MEDIA:HERO_START -->
+
+![静卦掌中版 StickS3 真机：灰色外壳、蓝色按键与竖向显示的地风升本卦结果](assets/readme/hero.webp)
+
+<!-- README_MEDIA:HERO_END -->
 
 ## 把传统的起卦体验，装进口袋
 
@@ -26,10 +27,15 @@ README_MEDIA:HERO_END -->
 3. **六爻成卦** — 起卦过程中长按 A 约 1 秒，可自动补齐尚未完成的爻；仍按原有铜钱与动画流程逐次生成。
 4. **静观其变** — 在设备上查看本卦、动爻、之卦与离线卦象码（`CODE NNNN`）。
 
-<!-- README_MEDIA:DEMO_START
-素材准备完成后，在此插入 assets/readme/demo.webp 或等效的演示视频链接。
-优先使用真实长按自动成卦片段；标注真实设备拍摄，避免混用不同卦的连续过程。
-README_MEDIA:DEMO_END -->
+<!-- README_MEDIA:DEMO_START -->
+
+<p align="center">
+  <img src="assets/readme/demo.webp" width="360" alt="StickS3 真机操作演示：按住 A、铜钱动画逐次生成六爻，最后显示水泽节本卦结果与 CODE 2341">
+</p>
+
+*真实设备拍摄 · 9.27 秒连续操作，静音循环播放。* [观看 / 下载 MP4](assets/readme/demo.mp4)
+
+<!-- README_MEDIA:DEMO_END -->
 
 ## 小小一台，能做什么？
 
@@ -42,10 +48,17 @@ README_MEDIA:DEMO_END -->
 | **掌中屏幕** | 面向 StickS3 竖屏设计的轻量界面与中文显示 |
 | **按需联网** | 已有主动连接、结果上传及固件更新的软件路径；需按开发配置使用，相关真机验收仍待完成 |
 
-<!-- README_MEDIA:SHOWCASE_START
-素材准备完成后，在此插入 assets/readme/showcase.webp 或多张真实界面截图。
-建议展示本卦、之卦及离线码，逐张核对卦名、爻图和 CODE 是否一致。
-README_MEDIA:SHOWCASE_END -->
+<!-- README_MEDIA:SHOWCASE_START -->
+
+<p align="center">
+  <img src="assets/readme/showcase-welcome.webp" width="30%" alt="欢迎界面真机照片：静卦、摇一摇、或按 A，底部为 B 设置">
+  <img src="assets/readme/showcase-prepare.webp" width="30%" alt="准备界面真机照片：默念所问，准备好后按 A 开始起卦">
+  <img src="assets/readme/showcase-result.webp" width="30%" alt="本卦结果界面真机照片：地风升、第 46 卦、动二爻、六爻图与 CODE 2718">
+</p>
+
+*欢迎 · 准备 · 本卦结果。照片中的「地风升」与视频中的「水泽节」来自不同次起卦。*
+
+<!-- README_MEDIA:SHOWCASE_END -->
 
 ## Pocket × Web：一卦，两种体验
 
