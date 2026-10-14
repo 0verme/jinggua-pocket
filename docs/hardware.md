@@ -205,10 +205,10 @@ manifest 版本/URL、镜像长度、SHA-256 和 ESP image 校验均通过后才
 请求 ESP bootloader rollback。NVS 历史与当前 app slot 不参与写入。
 
 构建环境的 `JINGGUA_OTA_ROOT_CA` 必须是 PEM trust anchor；缺少时 fail closed，
-普通固件仍可编译和离线使用。Release 还需注入 `JINGGUA_FIRMWARE_VERSION` 并同时
-发布 `firmware.bin` 与 `firmware-manifest.txt`，详见 [`ota.md`](ota.md)。仓库暂无
-GitHub Release，且当前没有可用 StickS3，因此真实更新、中断/掉电和 rollback 均为
-`PENDING_HARDWARE_VALIDATION`，不是软件门禁通过的替代项。
+普通固件仍可编译和离线使用。v0.3.0 累积预览版注入 `JINGGUA_FIRMWARE_VERSION`，并
+发布 `firmware.bin`、manifest 与 Windows USB 烧录包，详见 [`ota.md`](ota.md)。GitHub
+Pre-release 不会被设备固定的 `releases/latest` 地址发现；当前没有可用 StickS3，真实
+更新、中断/掉电和 rollback 均为 `PENDING_HARDWARE_VALIDATION`，不是软件门禁通过的替代项。
 
 ### Wi-Fi Provisioning TODO
 

@@ -12,7 +12,7 @@ constexpr std::size_t kFirmwareSha256HexLength = 64;
 constexpr std::uint32_t kFirmwareOtaSlotMaxBytes = 0x330000U;
 
 #ifndef JINGGUA_FIRMWARE_VERSION
-#define JINGGUA_FIRMWARE_VERSION "0.2.0"
+#define JINGGUA_FIRMWARE_VERSION "0.3.0"
 #endif
 
 inline constexpr const char* kJingGuaFirmwareVersion =
