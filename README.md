@@ -1,236 +1,98 @@
-# 静卦掌中版 · JingGua Pocket
+# 静卦 · JingGua Pocket
 
-> 把一卦，握在手里。
+> **把一卦，握在手里。**
 
-JingGua Pocket is a pocket-sized I Ching divination device built for
-**M5Stack StickS3 / ESP32-S3**. It is the hardware companion direction of the
-[静卦 JingGua Web project](https://github.com/0verme/jinggua), not a copy of
-another divination firmware.
+一台可以放进掌心的六爻起卦设备。拿起来，摇一摇；三枚铜钱，六次起落，在小小的屏幕上看见一卦。
 
-## 项目简介
+*A pocket-sized I Ching casting device. Shake, cast, and reflect — offline first.*
 
-长期愿景是让设备完成实体摇卦，在本地生成六爻、本卦、动爻与之卦，再
-由用户明确触发 Wi-Fi 联动，把完整解卦、历史与分享交给 JingGua Web。
+[**体验静卦网页版**](https://gua.overme.cn/) · [**下载预览固件**](https://github.com/0verme/jinggua-pocket/releases/tag/v0.3.0) · [**了解如何烧录**](docs/quick-start.md)
 
-当前软件版本线为 **v0.3.0 累积预览版**，汇总此前没有正式发布的 main 历史；不是只包含 Issue #42，也不是正式 `v1.0`。功能已覆盖离线六爻、IMU Shake、铜钱动画、历史、离线卦象码、用户主动 Wi-Fi/API、安全 OTA 软件路径及长按 A 自动成卦；真机验收仍单独待完成。审计和完整 PR 列表见 [`docs/releases/v0.3.0-audit.md`](docs/releases/v0.3.0-audit.md) 与 [`docs/releases/v0.3.0.md`](docs/releases/v0.3.0.md)。
+<!-- README_MEDIA:HERO_START
+素材准备完成后，在此插入 assets/readme/hero.webp 的真实设备横幅。
+保留实物外观与真实屏幕内容；禁止用概念渲染冒充实拍。
+README_MEDIA:HERO_END -->
 
-## 当前状态
+## 把传统的起卦体验，装进口袋
 
-- PlatformIO + Arduino Framework 工程已固定到 `m5stack-sticks3`。
-- Button Mode 已实现：A 短按逐爻起卦；在 Casting/未完成结果页长按 A（约 1000 ms）可自动补齐 0～5 条剩余爻，动画逐次串行并在完成后进入本卦结果页；真机手感/显示验收待验。
-- 三枚铜钱、六爻、本卦、动爻、之卦和 64 卦基础映射已实现。
-- IMU Shake Mode 已启用：`ShakeDetector` 使用加速度/角速度阈值、释放门限、
-  峰间隔与 cooldown；Button 仍可作为 fallback。
-- **Wi-Fi 与 JingGua API 已实现（Issue #7/#8，离线优先）**：设备启动时将
-  radio 置为关闭，只有用户从设置页显式触发才连接；连接异步非阻塞、15 秒超时、
-  失败/超时不自动重连。完整六爻先在本地生成，结果页按 B 才上传；上传使用
-  HTTPS、CA 校验、bounded payload/response、错误分类和手动 retry。当前不包含
-  设备绑定、二维码或历史自动同步。凭据通过构建期环境变量注入，不提交到仓库
-  （见下文「Wi-Fi/API 开发配置」）。
-- **安全 OTA 软件路径已实现（Issue #16）**：从已连接页显式进入、再次确认检查/安装，
-  下载仅允许受限 GitHub Release URL，TLS、SHA-256、固件/分区上限、inactive-slot
-  写入和 bootloader rollback 均有软件门禁；v0.3.0 为预览 Release。GitHub `releases/latest`
-  通常不选择 prerelease，因此当前设备的固定 OTA 查询不会发现本预览资产；真机更新与掉电/回滚
-  仍为 `PENDING_HARDWARE_VALIDATION`。详见 [`docs/ota.md`](docs/ota.md)。
-- **自动息屏与低功耗路径已实现（Issue #5）**：`Active → Dim → Display Off
-  → Light Sleep → Wake`，Button wake 和 state-preserving architecture 已
-  接入；真实电流、唤醒稳定性和续航仍为 `PENDING DEVICE VALIDATION`。
-- **声音反馈已实现（Issue #3）**：使用短合成 tone 提供 Start、Cast、Complete
-  和 Error 确认；固定单 channel、非阻塞、队列满时丢弃，Settings 长按可
-  runtime mute。默认固件启用 Speaker，麦克风 research environment 保持
-  Speaker 关闭。
-- 麦克风 Research 固件已提供独立的 `m5stack-sticks3-mic-research` 环境；
-  该环境只做显式触发的短时 PCM 统计，不属于产品语音流程。详见
-  [`docs/microphone-research.md`](docs/microphone-research.md)。
-- UI 已针对 StickS3 的 135×240 portrait 小屏完成基础 polish：一屏一个主要
-  动作、少文字、大字号、强层级，使用统一 layout/theme/typography constants；
-  Pocket 只展示本卦、动爻与之卦，不内置完整《周易》文本。
-- 本地起卦和历史离线运行；Wi-Fi 只在用户明确动作后开启。长按 A 自动补全复用现有单爻随机和动画链路。
+静卦掌中版（JingGua Pocket）是 [静卦 JingGua](https://github.com/0verme/jinggua) 的硬件探索：不需要打开手机，也不用始终连接网络，就能完成一次起卦。
 
-## Hardware
+它不负责替你做决定，只想为一个问题留出片刻安静。
 
-| 项目 | 选择 |
+## 一次起卦，四个瞬间
+
+1. **静心问事** — 拿起设备，想好要问的问题。
+2. **摇动或按下** — 摇一摇起爻，也可以短按 A，逐爻投出三枚铜钱。
+3. **六爻成卦** — 起卦过程中长按 A 约 1 秒，可自动补齐尚未完成的爻；仍按原有铜钱与动画流程逐次生成。
+4. **静观其变** — 在设备上查看本卦、动爻、之卦与离线卦象码（`CODE NNNN`）。
+
+<!-- README_MEDIA:DEMO_START
+素材准备完成后，在此插入 assets/readme/demo.webp 或等效的演示视频链接。
+优先使用真实长按自动成卦片段；标注真实设备拍摄，避免混用不同卦的连续过程。
+README_MEDIA:DEMO_END -->
+
+## 小小一台，能做什么？
+
+| 体验 | 当前能力 |
 | --- | --- |
-| Target | M5Stack StickS3 |
-| MCU | ESP32-S3-PICO-1-N8R8 / ESP32-S3 |
-| PlatformIO board id | `esp32-s3-devkitc-1` |
-| Framework | Arduino |
-| Display driver | M5Unified / M5GFX，StickS3 内置 ST7789P3 |
-| IMU | BMI270，通过 M5Unified `IMU_Class` |
-| Button API | M5Unified `M5.BtnA` / `M5.BtnB` |
-| Audio | M5Unified `M5.Speaker` / ES8311 I2S TX（普通固件） |
+| **摇一摇 / 按键起卦** | 支持 IMU Shake、A 短按逐爻及长按自动补全 |
+| **三枚铜钱 · 六爻** | 本地生成阴阳、动爻、本卦与之卦，配合铜钱动画 |
+| **离线优先** | 起卦和本地历史不依赖网络；启动时 Wi-Fi 默认关闭 |
+| **离线卦象码** | 在结果页展示 `CODE NNNN`，方便记录当前卦象 |
+| **掌中屏幕** | 面向 StickS3 竖屏设计的轻量界面与中文显示 |
+| **按需联网** | 已有主动连接、结果上传及固件更新的软件路径；需按开发配置使用，相关真机验收仍待完成 |
 
-PlatformIO 的 board id、PSRAM/partition 设置和 StickS3 外设依据记录在
-[`docs/hardware.md`](docs/hardware.md)，不在代码中猜测裸 GPIO 或 IMU 型号。Issue #15 的
-参数化 open-access bumper 草案、尺寸来源、prototype BOM 和硬件验证计划见
-[`cad/issue-15/README.md`](cad/issue-15/README.md)；尚无 OpenSCAD render 或实体样机验收。
+<!-- README_MEDIA:SHOWCASE_START
+素材准备完成后，在此插入 assets/readme/showcase.webp 或多张真实界面截图。
+建议展示本卦、之卦及离线码，逐张核对卦名、爻图和 CODE 是否一致。
+README_MEDIA:SHOWCASE_END -->
 
-官方资料：
+## Pocket × Web：一卦，两种体验
 
-- [StickS3 product documentation](https://docs.m5stack.com/en/core/StickS3)
-- [StickS3 Arduino Button](https://docs.m5stack.com/en/arduino/m5sticks3/button)
-- [StickS3 Arduino IMU](https://docs.m5stack.com/en/arduino/m5sticks3/imu)
-- [StickS3 Arduino Display](https://docs.m5stack.com/en/arduino/m5sticks3/display)
-- [M5Unified](https://github.com/m5stack/M5Unified)
-- [M5PM1](https://github.com/m5stack/M5PM1)
+**Pocket 负责起卦，Web 提供更完整的阅读体验。**
 
-## Features
+- **掌中版**：专注实体输入、本地六爻计算、简洁结果和离线历史。
+- **[静卦网页版](https://gua.overme.cn/)**：提供更适合手机与桌面阅读的起卦、解卦体验。
+- **联动方向**：设备已具备用户主动上传结果的基础软件能力；正式配网、设备绑定、二维码和历史自动同步**尚未交付**。离线卦象码与网页查询体验请以各自版本的实际支持情况为准。
 
-### Hardware v0.1
+两个项目分别维护：[JingGua Web 源码](https://github.com/0verme/jinggua) · [JingGua Pocket 源码](https://github.com/0verme/jinggua-pocket)。
 
-- 启动页：`静卦 / 摇一摇 / 或按 A`
-- 准备页：默念所问之事
-- Casting：显示当前爻序和三枚铜钱，Shake 为主动作，Button 为 fallback
-- LineResult：CoinAnimation 结束后显示三枚铜钱、阴/阳、静爻/动爻和下一步
-- 结果页：本卦名称、完整六爻图、动爻和之卦；无动爻时不进入空的之卦页
-- `InputEvent` 预留 `SHAKE`，硬件摇动检测不会侵入领域层
+## 想拿在手里试试？
 
-### 明确不在本阶段
+**当前发布版本：[v0.3.0 累积预览版](https://github.com/0verme/jinggua-pocket/releases/tag/v0.3.0)**
 
-AI 解卦、完整经文、OAuth、数据库管理、BLE 配网、设备绑定、历史自动同步、
-二维码、语音、自定义 PCB、外壳和多硬件兼容都不在本 Issue #8 scope 内。
+面向 **M5Stack StickS3 / ESP32-S3**，已经提供 USB 烧录包和固件资产。第一次刷机请先阅读 [快速开始与限制说明](docs/quick-start.md)，校验下载文件并确认设备型号，不要把单独的 `firmware.bin` 当作整片镜像烧入。
 
-## Architecture
+这是开发预览版，**不等于完成全部真机验收**。长按手感、Shake、屏幕排版、音频、功耗与 OTA 等项目仍需逐项验证；当前 Pre-release 也无法通过固件固定的 `releases/latest` OTA 地址自动发现。
 
-```text
-hardware (StickS3 / M5Unified / HTTPS OTA/API)
-        │  InputEvent + adapters
-        ▼
-application (Session + StateMachine + ApiClient + FirmwareUpdateClient)
-        │  const domain values / ports
-        ▼
-domain (coin / yao / trigram / hexagram / transformation)
-        ▲
-        │ static lookup tables
-data (8 trigrams + 64 hexagrams)
-```
+## 还在打磨什么？
 
-- `domain/` 只依赖 C++ 标准库，不依赖屏幕、按钮、M5Stack SDK 或 Arduino。
-- `application/` 通过 `RandomProvider` 接口取得铜钱输入，并管理六次起卦。
-- `hardware/` 只负责 M5Unified、ESP32 entropy、按钮、IMU、显示、电源和音频适配。
-- `PowerManager` 是可在主机测试的 inactivity 状态逻辑；
-  `StickS3PowerController` 将其映射到 Display brightness、Display Off 和
-  ESP32-S3 light sleep。
-- `ui/` 将状态和领域值绘制成克制的屏幕内容，不参与卦象计算；
-  `ui/layout.h`、`ui/theme.h`、`ui/typography.h` 统一小屏布局、颜色和字号。
-- `data/` 只存八卦与六十四卦基础映射，不塞入大量卦辞文本。
-- `tools/merge_font_assets.py` 将 Noto Sans SC 中缺少的实际文案字形合并进 VLW
-  子集并保留既有 bitmap；`docs/typography.md` 记录字体选择、字号层级和 Flash/RAM 测量。
+| 阶段 | 方向 |
+| --- | --- |
+| **v0.1–v0.2** | 离线六爻、摇动交互、铜钱动效与小屏体验的软件基础 |
+| **v0.3.0 Preview** | 长按自动成卦、离线历史与卦象码、主动 Wi-Fi/API、OTA 软件路径 |
+| **后续探索** | 更自然的配网与分享、设备绑定、历史同步、语音交互 |
+| **走向 v1.0** | 完整真机验证、稳定固件、外壳方案及正式发布准备 |
 
-详见：
+路线会随着实机测试调整。详见 [Roadmap](docs/roadmap.md) 与 [v0.3.0 发布说明](docs/releases/v0.3.0.md)。语音与外壳目前仍处于研究或设计阶段，不代表已交付成品。
 
-- [`docs/architecture.md`](docs/architecture.md)
-- [`docs/divination-model.md`](docs/divination-model.md)
-- [`docs/state-machine.md`](docs/state-machine.md)
-- [`docs/power-management.md`](docs/power-management.md)
-- [`docs/coin-animation.md`](docs/coin-animation.md)
-- [`docs/api-contract.md`](docs/api-contract.md)
-- [`docs/ota.md`](docs/ota.md)
-- [`docs/audio-feedback.md`](docs/audio-feedback.md)
-- [`docs/ui-guidelines.md`](docs/ui-guidelines.md)
+## 给想自己动手的开发者
 
-## Development
+项目基于 **M5Stack StickS3、ESP32-S3、PlatformIO 与 Arduino Framework**。完整的硬件参数、架构、编译、测试、Wi-Fi/API 开发配置不再挤占产品首页：
 
-当前开发预览版的首次运行、离线起卦、Wi-Fi/OTA 限制和已知未完成项见
-[快速开始与限制说明](docs/quick-start.md)。该指南不代表 v1.0 发布或硬件验收通过。
+- [工程与开发指南](docs/development.md) — 编译、烧录、测试命令及开发配置
+- [硬件说明](docs/hardware.md) — 设备、引脚/外设依据与硬件边界
+- [架构设计](docs/architecture.md) — Domain、Application、Hardware、UI 分层
+- [卦象算法](docs/divination-model.md) — 三枚铜钱、六爻与动爻变换
+- [快速开始](docs/quick-start.md) — 预览固件下载、USB 烧录与已知限制
+- [完整技术文档](docs/) — 状态机、动画、电源、字体、API 与 OTA
 
-Python 命令示例使用 Python 3：macOS/Linux 使用 `python3`，Windows PowerShell 使用
-`py -3`；PlatformIO 命令直接使用 `pio`。
+## 关于隐私与使用边界
 
-### Host native tests
+本地起卦不会自动联网；设备不会上传你所问的问题原文。Wi-Fi、结果上传与 OTA 均由用户明确操作触发。具体网络行为和开发配置见 [工程与开发指南](docs/development.md) 与 [API 契约](docs/api-contract.md)。
 
-领域与应用层可在没有 StickS3 的主机环境编译：
+静卦用于传统文化体验与自我反思，不替代医疗、法律、财务或其他专业建议。
 
-```bash
-cmake -S test/native -B build/native
-cmake --build build/native
-ctest --test-dir build/native --output-on-failure
-```
+## 许可证
 
-测试覆盖铜钱总数、四种爻、下上卦和六十四卦映射、动爻变换、起卦顺序、
-完整状态流、PowerManager 的 inactivity threshold、活动唤醒、sleep inhibition 和
-`millis()` wrap-around，以及 API contract 的 fake transport/client、离线保护、
-错误、bounded response 和手动 retry；OTA manifest/version、显式检查/安装、离线保护、
-下载进度与取消。Host tests 使用 deterministic `RandomProvider`，不会调用 Arduino `random()`。
-OTA manifest 生成器由 `python3 -m unittest discover -s test/python -p 'test_*.py'` 验证。
-
-字体子集完整性、分区/rollback 检查与 Release manifest 工具测试：
-
-```bash
-python3 tools/check_font_asset.py
-python3 tools/check_ota_support.py
-python3 -m unittest discover -s test/python -p 'test_*.py'
-```
-
-### StickS3 firmware
-
-安装 PlatformIO 后执行：
-
-```bash
-pio run -e m5stack-sticks3
-python3 tools/check_ota_support.py
-pio run -e m5stack-sticks3 -t upload
-pio device monitor -b 115200
-```
-
-工程只有一个硬件 environment；native tests 使用独立 CMake harness，避免
-为了主机测试伪造一个额外的硬件兼容 environment。
-
-### Wi-Fi/API 开发配置
-
-固件默认不定义任何 Wi-Fi 凭据或 API 配置；未配置时设置页点「连接」会提示
-「未配置 Wi-Fi」，即使连接成功但没有 API URL/CA，上传也会安全失败。固件仍可
-编译、刷机、离线起卦和保存本地历史。需要真机验证时，在构建前设置环境变量
-（不要写进仓库）：
-
-```bash
-# macOS / Linux
-JINGGUA_WIFI_SSID="你的SSID" JINGGUA_WIFI_PASSWORD="你的密码" pio run -e m5stack-sticks3
-
-# Windows (PowerShell)
-$env:JINGGUA_WIFI_SSID="你的SSID"
-$env:JINGGUA_WIFI_PASSWORD="你的密码"
-$env:JINGGUA_API_URL="https://your-jinggua-host.example/api/divinations"
-$env:JINGGUA_API_ROOT_CA="-----BEGIN CERTIFICATE-----..."
-pio run -e m5stack-sticks3
-```
-
-`tools/wifi_credentials.py` 注入 Wi-Fi 构建参数，`tools/api_config.py` 注入
-API URL 和公开 CA certificate；脚本不会打印 API 配置。没有 CA 时不会调用
-`setInsecure()`，而是 fail closed。OTA 发布构建另设置
-`JINGGUA_FIRMWARE_VERSION` 与 `JINGGUA_OTA_ROOT_CA`；没有 OTA CA 时更新器拒绝
-启动网络操作。GitHub Release manifest/asset 的契约、哈希生成命令和硬件边界见
-[`docs/ota.md`](docs/ota.md)。v0.3.0 prerelease 有 USB 固件资产，但固定的 `releases/latest`
-OTA 地址不会选择 prerelease。
-`.gitignore` 已忽略 `.env` / `.env.*`，凭据不会进入提交。未来正式的
-credential provisioning（例如 BLE/App 配网、WPS）不在本 Issue 范围，
-详见 [`docs/hardware.md`](docs/hardware.md) 的「Wi-Fi Provisioning TODO」。
-
-## Roadmap
-
-详见 [`docs/roadmap.md`](docs/roadmap.md)。
-
-- **v0.1**：StickS3、Button 起卦、三枚铜钱、六爻、本卦、动爻、之卦、离线。
-- **v0.2**：IMU Shake、铜钱动画、音效、135×240 UI polish（Issue #6）、自动息屏与
-  低功耗管理（Issue #5）。
-- **v0.3.0 累积预览**：Wi-Fi/API、离线历史与卦象码、安全 OTA 软件路径、铜钱/小屏优化及 Issue #42 长按 A 自动成卦。设备绑定、二维码、历史云同步和语音产品流程尚未交付。
-- **后续版本**：正式凭据配网、设备绑定/分享/同步、语音能力及量产外壳需分别完成契约、实现和验收；麦克风 PR 仅为录音研究。
-- **v1.0**：正式发布总控仍由 Issue #18 跟踪；还需完成许可证选择、定制外壳、稳定固件与硬件验收。本次预览不关闭该 Issue，也不代表实机验证通过。
-
-## Related Project
-
-- [JingGua Web](https://github.com/0verme/jinggua)
-
-## Privacy and disclaimer
-
-设备不上传用户所问之事，不采集 MAC/芯片唯一 ID，不做自动联网或后台上报。
-Issue #8 的 API 只在用户完成六爻并在结果页按 B 后发送已完成结果；OTA 只在用户
-从已连接页长按并确认后读取 Release manifest/固件。设备默认开机关闭 radio，连接
-成功后不自动上传、检查或下载。请求不包含长期 credential；未来正式设备绑定属于 #9。
-
-本项目是文化与自我反思用途的工具，不替代医疗、法律、财务或其他专业
-判断。卦象算法和显示顺序会在测试与真机 Bring-up 中持续校验。
-
-## License
-
-License: **TBD**
+**TBD** — 尚未确定正式许可证，仓库目前没有 `LICENSE` 文件。代码公开可见不意味着已经授予任意复制、修改或再分发的许可；请等待正式许可证声明。
